@@ -651,11 +651,16 @@ onMounted(() => {
       v.shadowMap.enabled = false
 
       if (!v.imageryLayers.length) {
-        const highResMap = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
-          'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-          { enablePickFeatures: false }
-        )
-        v.imageryLayers.addImageryProvider(highResMap)
+        try {
+          const highResMap = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+            'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+            { enablePickFeatures: false }
+          )
+          v.imageryLayers.addImageryProvider(highResMap)
+        } catch (imageryError) {
+          // Keep the scene usable when the external imagery service is blocked or unavailable.
+          console.warn('[Cesium] Failed to load ArcGIS imagery, continuing without satellite basemap.', imageryError)
+        }
       }
 
       if (v.imageryLayers.length > 0) {
