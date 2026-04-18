@@ -3,7 +3,7 @@
     <h2>卫星信息管理</h2>
     <el-card class="management-card">
       <div class="card-header">
-        <el-button type="primary" @click="dialogVisible = true">添加卫星</el-button>
+        <el-button type="primary" @click="addSatellite">添加卫星</el-button>
       </div>
       
       <el-table :data="satellites" stripe>
@@ -145,7 +145,7 @@ const saveSatellite = () => {
           // 编辑操作
           const index = satellites.value.findIndex(s => s.id === satelliteForm.id)
           if (index !== -1) {
-            satellites.value[index] = { ...satelliteForm }
+            satellites.value[index] = { ...satelliteForm } as any
           }
         } else {
           // 添加操作
@@ -164,7 +164,7 @@ const saveSatellite = () => {
 
 <style scoped>
 .satellite-management {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .management-card {
@@ -175,5 +175,7 @@ const saveSatellite = () => {
 .card-header {
   margin-bottom: 15px;
   text-align: right;
+}
+</style>t;
 }
 </style>

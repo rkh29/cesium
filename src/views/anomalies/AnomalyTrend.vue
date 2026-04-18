@@ -71,7 +71,7 @@ const initTrendChart = () => {
         {
           name: '总异常数',
           type: chartType.value,
-          data: Array.from({ length: 12 }, (_, i) => {
+          data: Array.from({ length: 12 }, () => {
             return Math.floor(Math.random() * 10 + 10)
           }),
           itemStyle: { color: '#FF7D00' }
@@ -117,7 +117,7 @@ onUnmounted(() => {
 
 <style scoped>
 .anomaly-trend {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .trend-card {

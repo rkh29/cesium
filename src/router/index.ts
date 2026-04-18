@@ -1,155 +1,53 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import Dashboard from '../views/Dashboard.vue'
-import AnomalyList from '../views/AnomalyList.vue'
-import AnomalyDetail from '../views/AnomalyDetail.vue'
+import { createRouter, createWebHashHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { useAuthStore } from '../stores/auth'
 
-// 实时监控页面
-const SatelliteStatus = () => import('../views/real-time/SatelliteStatus.vue')
-const KeyMetrics = () => import('../views/real-time/KeyMetrics.vue')
-const RealTimeAlerts = () => import('../views/real-time/RealTimeAlerts.vue')
-
-// 异常分析页面
-const AnomalyTrace = () => import('../views/anomalies/AnomalyTrace.vue')
-const AnomalyTrend = () => import('../views/anomalies/AnomalyTrend.vue')
-
-// 数据管理页面
-const HistoryData = () => import('../views/data/HistoryData.vue')
-const DataExport = () => import('../views/data/DataExport.vue')
-const DataBackup = () => import('../views/data/DataBackup.vue')
-
-// 系统配置页面
-const SatelliteManagement = () => import('../views/config/SatelliteManagement.vue')
-const DetectionRules = () => import('../views/config/DetectionRules.vue')
-const AlertThresholds = () => import('../views/config/AlertThresholds.vue')
-
-// 帮助中心页面
-const HelpCenter = () => import('../views/help/HelpCenter.vue')
-const QuickStart = () => import('../views/help/QuickStart.vue')
-const FeatureManual = () => import('../views/help/FeatureManual.vue')
-const AnomalyGuide = () => import('../views/help/AnomalyGuide.vue')
-const FAQ = () => import('../views/help/FAQ.vue')
-const VideoTutorials = () => import('../views/help/VideoTutorials.vue')
-const Feedback = () => import('../views/help/Feedback.vue')
+const Dashboard = () => import('../views/Dashboard.vue')
+const EarthView = () => import('../views/EarthView.vue')
+const VisualEditor = () => import('../views/VisualEditor.vue')
+const InstanceManagement = () => import('../views/topology/InstanceManagement.vue')
+const LinkManagement = () => import('../views/topology/LinkManagement.vue')
+const AgentChat = () => import('../views/AgentChat.vue')
+const DagPipeline = () => import('../views/Workflows.vue')
+const Blackboard = () => import('../views/Blackboard.vue')
+const Faults = () => import('../views/Faults.vue')
+const SatelliteDetail = () => import('../views/SatelliteDetail.vue')
+const SecurityAudit = () => import('../views/SecurityAudit.vue')
+const LlmStatus = () => import('../views/LlmStatus.vue')
 
 const routes = [
-  {
-    path: '/',
-    name: 'Dashboard',
-    component: Dashboard
-  },
-  // 实时监控路由
-  {
-    path: '/real-time/status',
-    name: 'SatelliteStatus',
-    component: SatelliteStatus
-  },
-  {
-    path: '/real-time/metrics',
-    name: 'KeyMetrics',
-    component: KeyMetrics
-  },
-  {
-    path: '/real-time/alerts',
-    name: 'RealTimeAlerts',
-    component: RealTimeAlerts
-  },
-  // 异常分析路由
-  {
-    path: '/anomalies',
-    name: 'AnomalyList',
-    component: AnomalyList
-  },
-  {
-    path: '/anomalies/:id',
-    name: 'AnomalyDetail',
-    component: AnomalyDetail
-  },
-  {
-    path: '/anomalies/trace',
-    name: 'AnomalyTrace',
-    component: AnomalyTrace
-  },
-  {
-    path: '/anomalies/trend',
-    name: 'AnomalyTrend',
-    component: AnomalyTrend
-  },
-  // 数据管理路由
-  {
-    path: '/data/history',
-    name: 'HistoryData',
-    component: HistoryData
-  },
-  {
-    path: '/data/export',
-    name: 'DataExport',
-    component: DataExport
-  },
-  {
-    path: '/data/backup',
-    name: 'DataBackup',
-    component: DataBackup
-  },
-  // 系统配置路由
-  {
-    path: '/config/satellites',
-    name: 'SatelliteManagement',
-    component: SatelliteManagement
-  },
-  {
-    path: '/config/rules',
-    name: 'DetectionRules',
-    component: DetectionRules
-  },
-  {
-    path: '/config/thresholds',
-    name: 'AlertThresholds',
-    component: AlertThresholds
-  },
-  // 帮助中心路由
-  {
-    path: '/help',
-    name: 'HelpCenter',
-    component: HelpCenter,
-    redirect: '/help/quick-start',
-    children: [
-      {
-        path: 'quick-start',
-        name: 'QuickStart',
-        component: QuickStart
-      },
-      {
-        path: 'feature-manual',
-        name: 'FeatureManual',
-        component: FeatureManual
-      },
-      {
-        path: 'anomaly-guide',
-        name: 'AnomalyGuide',
-        component: AnomalyGuide
-      },
-      {
-        path: 'faq',
-        name: 'FAQ',
-        component: FAQ
-      },
-      {
-        path: 'video-tutorials',
-        name: 'VideoTutorials',
-        component: VideoTutorials
-      },
-      {
-        path: 'feedback',
-        name: 'Feedback',
-        component: Feedback
-      }
-    ]
-  }
+  { path: '/', component: Dashboard, meta: { requiresAuth: true } },
+  { path: '/earth', component: EarthView, meta: { requiresAuth: true } },
+  { path: '/editor', component: VisualEditor, meta: { requiresAuth: true } },
+  { path: '/instances', component: InstanceManagement, meta: { requiresAuth: true } },
+  { path: '/links', component: LinkManagement, meta: { requiresAuth: true } },
+  { path: '/agent', component: AgentChat, meta: { requiresAuth: true } },
+  { path: '/dag-pipeline', component: DagPipeline, meta: { requiresAuth: true } },
+  { path: '/blackboard', component: Blackboard, meta: { requiresAuth: true } },
+  { path: '/faults', component: Faults, meta: { requiresAuth: true } },
+  { path: '/satellite/:id', component: SatelliteDetail, props: true, meta: { requiresAuth: true } },
+  { path: '/security', component: SecurityAudit, meta: { requiresAuth: true } },
+  { path: '/llm', component: LlmStatus, meta: { requiresAuth: true } },
+  { path: '/topology/instances', redirect: '/instances' },
+  { path: '/topology/links', redirect: '/links' },
+  { path: '/workflows', redirect: '/dag-pipeline' },
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
+})
+
+router.beforeEach((to, _from, next) => {
+  const authStore = useAuthStore()
+  
+  // No explicit redirect to login route since it is handled by a modal in App.vue
+  if (to.path === '/security' && authStore.user?.role === 'viewer') {
+    ElMessage.warning('当前账号没有审批权限')
+  }
+
+  next()
 })
 
 export default router

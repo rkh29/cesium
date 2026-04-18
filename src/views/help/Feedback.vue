@@ -340,12 +340,12 @@ const getStatusLabel = (status: string) => {
 }
 
 // 查看详情
-const viewDetail = (row: any) => {
+const viewDetail = (_row: any) => {
   ElMessage.info('查看详情功能开发中...')
 }
 
 // 追加说明
-const appendRemark = (row: any) => {
+const appendRemark = (_row: any) => {
   ElMessage.info('追加说明功能开发中...')
 }
 </script>
@@ -363,7 +363,7 @@ const appendRemark = (row: any) => {
   margin: 0 0 10px 0;
   font-size: 24px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .feedback-content {
@@ -378,19 +378,19 @@ const appendRemark = (row: any) => {
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
   border-bottom: 2px solid #165DFF;
   padding-bottom: 10px;
 }
 
 .section-desc {
-  color: #606266;
+  color: var(--vscode-text-muted);
   margin-bottom: 30px;
   font-size: 14px;
 }
 
 .feedback-form {
-  background-color: #f8f9fa;
+  background-color: var(--vscode-sidebar-bg);
   padding: 30px;
   border-radius: 8px;
 }

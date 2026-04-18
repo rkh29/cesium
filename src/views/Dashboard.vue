@@ -233,7 +233,7 @@ onUnmounted(() => {
 
 <style scoped>
 .dashboard {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .section {
@@ -292,7 +292,7 @@ onUnmounted(() => {
 .satellite-info p {
   margin: 8px 0;
   font-size: 14px;
-  color: #606266;
+  color: var(--vscode-text-muted);
 }
 
 /* 图表卡片 */
@@ -309,7 +309,7 @@ onUnmounted(() => {
 .stat-card {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  background-color: #ECF5FF;
+  background-color: var(--vscode-active);
 }
 
 .stat-content {
@@ -320,7 +320,7 @@ onUnmounted(() => {
 .stat-number {
   font-size: 32px;
   font-weight: bold;
-  color: #165DFF;
+  color: var(--vscode-primary);
   margin-bottom: 8px;
 }
 
@@ -330,6 +330,6 @@ onUnmounted(() => {
 
 .stat-label {
   font-size: 14px;
-  color: #606266;
+  color: var(--vscode-text-muted);
 }
 </style>

@@ -94,7 +94,7 @@ const downloadFile = (row: any) => {
 
 <style scoped>
 .data-export {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .export-card {

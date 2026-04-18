@@ -76,7 +76,7 @@ const handleAlertDetail = (alert: any) => {
 
 <style scoped>
 .real-time-alerts {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
   height: 100%;
   width: 100%;
   display: flex;
@@ -86,10 +86,10 @@ const handleAlertDetail = (alert: any) => {
 .real-time-alerts h2 {
   margin: 0 0 15px 0;
   padding-bottom: 10px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--vscode-border);
   font-size: 20px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .alerts-card {
@@ -116,14 +116,14 @@ const handleAlertDetail = (alert: any) => {
 }
 
 .alerts-card .el-table__header-wrapper {
-  background-color: #fafafa;
+  background-color: var(--vscode-hover);
 }
 
 .alerts-card .el-table__header-wrapper th {
   font-weight: bold;
-  color: #1d2129;
-  background-color: #fafafa;
-  border-bottom: 1px solid #e0e0e0;
+  color: var(--vscode-text);
+  background-color: var(--vscode-hover);
+  border-bottom: 1px solid var(--vscode-border);
 }
 
 .alerts-card .el-table__body-wrapper {

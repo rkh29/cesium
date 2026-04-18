@@ -113,7 +113,7 @@ initData()
 
 <style scoped>
 .anomaly-list {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .filter-card {

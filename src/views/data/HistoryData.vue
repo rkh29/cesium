@@ -95,7 +95,7 @@ const resetForm = () => {
 
 <style scoped>
 .history-data {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .data-card {

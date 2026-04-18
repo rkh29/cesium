@@ -136,7 +136,7 @@ const saveThreshold = () => {
       if (valid) {
         const index = thresholds.value.findIndex(t => t.id === thresholdForm.id)
         if (index !== -1) {
-          thresholds.value[index] = { ...thresholdForm }
+          thresholds.value[index] = { ...thresholdForm } as any
         }
         dialogVisible.value = false
         ElMessage.success('保存成功')
@@ -148,7 +148,7 @@ const saveThreshold = () => {
 
 <style scoped>
 .alert-thresholds {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .thresholds-card {

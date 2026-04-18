@@ -154,7 +154,7 @@ const saveRule = () => {
           // 编辑操作
           const index = rules.value.findIndex(r => r.id === ruleForm.id)
           if (index !== -1) {
-            rules.value[index] = { ...ruleForm }
+            rules.value[index] = { ...ruleForm } as any
           }
         } else {
           // 添加操作
@@ -162,7 +162,7 @@ const saveRule = () => {
             ...ruleForm,
             id: rules.value.length + 1,
             status: true
-          })
+          } as any)
         }
         dialogVisible.value = false
         ElMessage.success('保存成功')
@@ -174,7 +174,7 @@ const saveRule = () => {
 
 <style scoped>
 .detection-rules {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .rules-card {

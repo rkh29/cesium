@@ -239,7 +239,7 @@ onUnmounted(() => {
 
 <style scoped>
 .satellite-status {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
   position: relative;
   height: 100%;
   display: flex;
@@ -254,7 +254,7 @@ onUnmounted(() => {
   align-items: center;
   margin: 0;
   padding-bottom: 10px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--vscode-border);
 }
 
 .header-actions {
@@ -288,9 +288,9 @@ onUnmounted(() => {
   right: 25px;
   top: 90px;
   width: 320px;
-  background-color: white;
+  background-color: var(--vscode-sidebar-bg);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px var(--vscode-shadow);
   padding: 20px;
   z-index: 1000;
   max-height: calc(100vh - 120px);
@@ -300,7 +300,7 @@ onUnmounted(() => {
   margin: 0 0 15px 0;
   font-size: 16px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .alerts-list {
@@ -315,24 +315,24 @@ onUnmounted(() => {
 }
 
 .alerts-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--vscode-hover);
   border-radius: 3px;
 }
 
 .alerts-list::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--vscode-border);
   border-radius: 3px;
 }
 
 .alerts-list::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: var(--vscode-text-muted);
 }
 
 .alert-item {
   padding: 15px;
   border-radius: 6px;
   margin-bottom: 15px;
-  background-color: #f5f7fa;
+  background-color: var(--vscode-hover);
   border-left: 4px solid;
   transition: all 0.3s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -354,7 +354,7 @@ onUnmounted(() => {
 }
 
 .alert-item.low {
-  border-left-color: #165DFF;
+  border-left-color: var(--vscode-primary);
   background-color: rgba(22, 93, 255, 0.1);
 }
 

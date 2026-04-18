@@ -116,7 +116,7 @@ const deleteBackup = (row: any) => {
 
 <style scoped>
 .data-backup {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .backup-card {

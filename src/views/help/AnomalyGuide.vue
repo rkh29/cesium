@@ -124,7 +124,7 @@
             <div class="orbit-preview">
               <el-skeleton :rows="5" animated>
                 <template #template>
-                  <div style="height: 300px; background: #f0f0f0; border-radius: 8px;" />
+                  <div style="height: 300px; background-color: var(--vscode-hover); border-radius: 8px;" />
                 </template>
               </el-skeleton>
             </div>
@@ -285,7 +285,7 @@ const signalThreshold = ref(70)
   margin: 0 0 10px 0;
   font-size: 24px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .content-section {
@@ -296,7 +296,7 @@ const signalThreshold = ref(70)
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
   border-bottom: 2px solid #165DFF;
   padding-bottom: 10px;
 }
@@ -316,7 +316,7 @@ const signalThreshold = ref(70)
   margin: 0 0 15px 0;
   font-size: 16px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 /* 轨道预览 */
@@ -325,7 +325,7 @@ const signalThreshold = ref(70)
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f8f9fa;
+  background-color: var(--vscode-sidebar-bg);
   border-radius: 8px;
 }
 </style>

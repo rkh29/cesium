@@ -130,7 +130,7 @@
             <div class="trace-preview">
               <el-skeleton :rows="5" animated>
                 <template #template>
-                  <div style="height: 200px; background: #f0f0f0; border-radius: 8px;" />
+                  <div style="height: 200px; background-color: var(--vscode-hover); border-radius: 8px;" />
                 </template>
               </el-skeleton>
             </div>
@@ -317,7 +317,7 @@ const rules = ref(['voltage', 'temperature'])
   margin: 0 0 10px 0;
   font-size: 24px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .content-section {
@@ -328,7 +328,7 @@ const rules = ref(['voltage', 'temperature'])
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
   border-bottom: 2px solid #165DFF;
   padding-bottom: 10px;
 }
@@ -363,7 +363,7 @@ const rules = ref(['voltage', 'temperature'])
   margin-bottom: 10px;
   font-size: 14px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 /* 溯源预览 */
@@ -372,7 +372,7 @@ const rules = ref(['voltage', 'temperature'])
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f8f9fa;
+  background-color: var(--vscode-sidebar-bg);
   border-radius: 8px;
 }
 

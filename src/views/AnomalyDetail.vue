@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAnomalyStore } from '../store/anomaly'
@@ -101,7 +101,7 @@ onMounted(async () => {
 
 <style scoped>
 .anomaly-detail {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .detail-card {

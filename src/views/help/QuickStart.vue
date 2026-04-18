@@ -155,7 +155,7 @@
               <div class="monitor-preview">
                 <el-skeleton :rows="4" animated>
                   <template #template>
-                    <div style="height: 200px; background: #f0f0f0; border-radius: 8px;" />
+                    <div style="height: 200px; background-color: var(--vscode-hover); border-radius: 8px;" />
                   </template>
                 </el-skeleton>
               </div>
@@ -167,7 +167,7 @@
               <div class="analysis-preview">
                 <el-skeleton :rows="4" animated>
                   <template #template>
-                    <div style="height: 200px; background: #f0f0f0; border-radius: 8px;" />
+                    <div style="height: 200px; background-color: var(--vscode-hover); border-radius: 8px;" />
                   </template>
                 </el-skeleton>
               </div>
@@ -179,7 +179,7 @@
               <div class="data-preview">
                 <el-skeleton :rows="4" animated>
                   <template #template>
-                    <div style="height: 200px; background: #f0f0f0; border-radius: 8px;" />
+                    <div style="height: 200px; background-color: var(--vscode-hover); border-radius: 8px;" />
                   </template>
                 </el-skeleton>
               </div>
@@ -265,7 +265,7 @@ const userRoles = [
   margin: 0 0 10px 0;
   font-size: 24px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .content-section {
@@ -276,7 +276,7 @@ const userRoles = [
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
   border-bottom: 2px solid #165DFF;
   padding-bottom: 10px;
 }
@@ -290,7 +290,7 @@ const userRoles = [
 .system-overview h4 {
   margin-bottom: 10px;
   font-size: 18px;
-  color: #165DFF;
+  color: var(--vscode-primary);
 }
 
 .key-features h4 {
@@ -310,7 +310,7 @@ const userRoles = [
 
 .feature-icon {
   font-size: 32px;
-  color: #165DFF;
+  color: var(--vscode-primary);
   margin-bottom: 10px;
 }
 
@@ -322,7 +322,7 @@ const userRoles = [
 
 .feature-item p {
   font-size: 14px;
-  color: #606266;
+  color: var(--vscode-text-muted);
   margin: 0;
 }
 
@@ -345,7 +345,7 @@ const userRoles = [
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f8f9fa;
+  background-color: var(--vscode-sidebar-bg);
   border-radius: 8px;
 }
 

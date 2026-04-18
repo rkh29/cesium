@@ -222,7 +222,7 @@ const filteredFaqs = computed(() => {
   margin: 0 0 10px 0;
   font-size: 24px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .faq-content {
@@ -249,10 +249,10 @@ const filteredFaqs = computed(() => {
 
 /* FAQ列表样式 */
 .faq-list {
-  background-color: white;
+  background-color: var(--vscode-sidebar-bg);
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px var(--vscode-shadow);
 }
 
 .el-collapse {
@@ -262,14 +262,14 @@ const filteredFaqs = computed(() => {
 .el-collapse-item__header {
   font-size: 16px;
   font-weight: bold;
-  color: #1d2129;
-  border-bottom: 1px solid #e4e7ed;
+  color: var(--vscode-text);
+  border-bottom: 1px solid var(--vscode-border);
   padding: 15px 0;
   transition: all 0.3s ease;
 }
 
 .el-collapse-item__header:hover {
-  background-color: #f0f9ff;
+  background-color: var(--vscode-active);
   padding-left: 10px;
 }
 
@@ -285,7 +285,7 @@ const filteredFaqs = computed(() => {
   margin: 0 0 15px 0;
   font-size: 16px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 /* 时间线样式 */

@@ -105,7 +105,7 @@ const resetForm = () => {
 
 <style scoped>
 .anomaly-trace {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
 }
 
 .trace-card {

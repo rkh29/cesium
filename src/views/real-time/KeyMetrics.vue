@@ -379,7 +379,7 @@ onUnmounted(() => {
 
 <style scoped>
 .key-metrics {
-  padding: 0;
+  padding: 24px; box-sizing: border-box;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -392,7 +392,7 @@ onUnmounted(() => {
   gap: 15px;
   margin: 0 0 15px 0;
   padding-bottom: 10px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--vscode-border);
 }
 
 /* 图表卡片 */
@@ -413,14 +413,14 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  background-color: #fafafa;
-  border-bottom: 1px solid #e0e0e0;
+  background-color: var(--vscode-hover);
+  border-bottom: 1px solid var(--vscode-border);
 }
 
 .card-header span {
   font-weight: bold;
   font-size: 16px;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 /* 图表区域 */

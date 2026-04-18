@@ -126,8 +126,8 @@ const activeMenu = computed(() => {
 
 .help-sidebar {
   width: 240px;
-  background-color: #f8f9fa;
-  border-right: 1px solid #e4e7ed;
+  background-color: var(--vscode-sidebar-bg);
+  border-right: 1px solid var(--vscode-border);
   padding: 15px;
   overflow-y: auto;
 }
@@ -140,7 +140,7 @@ const activeMenu = computed(() => {
   margin: 0 0 10px 0;
   font-size: 16px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .help-menu {
@@ -150,7 +150,7 @@ const activeMenu = computed(() => {
 
 .help-content {
   padding: 20px;
-  background-color: white;
+  background-color: var(--vscode-sidebar-bg);
   overflow-y: auto;
 }
 </style>

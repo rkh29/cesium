@@ -131,7 +131,7 @@ const handleClose = () => {
   margin: 0 0 10px 0;
   font-size: 24px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .video-content {
@@ -148,7 +148,7 @@ const handleClose = () => {
 
 .video-card:hover {
   box-shadow: 0 4px 12px rgba(22, 93, 255, 0.2);
-  border-color: #165DFF;
+  border-color: var(--vscode-primary);
   transform: translateY(-2px);
 }
 
@@ -156,7 +156,7 @@ const handleClose = () => {
   position: relative;
   height: 180px;
   overflow: hidden;
-  background-color: #f8f9fa;
+  background-color: var(--vscode-sidebar-bg);
   border-radius: 8px 8px 0 0;
 }
 
@@ -188,7 +188,7 @@ const handleClose = () => {
 }
 
 .play-button:hover {
-  background-color: #165DFF;
+  background-color: var(--vscode-primary);
   transform: translate(-50%, -50%) scale(1.1);
 }
 
@@ -217,7 +217,7 @@ const handleClose = () => {
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -226,7 +226,7 @@ const handleClose = () => {
 .video-info p {
   margin: 0;
   font-size: 14px;
-  color: #606266;
+  color: var(--vscode-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -242,7 +242,7 @@ const handleClose = () => {
 
 .video-player {
   width: 100%;
-  background-color: #f8f9fa;
+  background-color: var(--vscode-sidebar-bg);
   border-radius: 8px;
   margin-bottom: 20px;
 }
@@ -255,13 +255,13 @@ const handleClose = () => {
   margin: 0 0 10px 0;
   font-size: 18px;
   font-weight: bold;
-  color: #1d2129;
+  color: var(--vscode-text);
 }
 
 .video-description p {
   margin: 0;
   font-size: 14px;
-  color: #606266;
+  color: var(--vscode-text-muted);
   line-height: 1.6;
 }
 </style>
