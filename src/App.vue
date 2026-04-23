@@ -12,7 +12,9 @@ import {
   Link,
   Monitor,
   Notification,
+  Odometer,
   Operation,
+  Position,
   Setting,
   User
 } from '@element-plus/icons-vue'
@@ -54,7 +56,7 @@ const helperMessages = ref<HelperMessage[]>([
   {
     role: 'assistant',
     content:
-      '我是右侧快捷助手。这里已经接入真实 agent 接口，你可以直接问我运维问题，例如“今天是星期几”“排查 GEO 骨干链路异常”“怎么看 LLM 状态”。'
+      '您好，我是 SpaceMAN 智能协作助手。已接入全网运行监控与诊断系统，您可以向我下达运维指令，例如“分析当前全网异常节点”、“排查 LEO 链路中断原因”或“查看大模型调度负载”。'
   }
 ])
 
@@ -64,8 +66,8 @@ const groups: NavGroup[] = [
     label: '总览',
     icon: Monitor,
     children: [
-      { path: '/', label: '卫星群仿真', icon: Monitor },
-      { path: '/earth', label: '卫星群视图', icon: Monitor },
+      { path: '/', label: '卫星群仿真', icon: Odometer },
+      { path: '/earth', label: '卫星群视图', icon: Position },
       { path: '/editor', label: '卫星可视编辑', icon: Operation }
     ]
   },
@@ -304,13 +306,13 @@ const currentTitle = computed(() => {
     >
       <el-form label-position="top">
         <el-form-item label="用户名">
-          <el-input v-model="loginForm.username" placeholder="请输入用户名 (admin)" />
+          <el-input v-model="loginForm.username" placeholder="请输入用户名" />
         </el-form-item>
         <el-form-item label="密码">
           <el-input
             v-model="loginForm.password"
             type="password"
-            placeholder="请输入密码 (admin)"
+            placeholder="请输入密码"
             @keyup.enter="handleLogin"
           />
         </el-form-item>
