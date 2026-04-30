@@ -2,9 +2,10 @@
   <div id="satmap-container" ref="containerRef">
     <iframe
       ref="iframeRef"
+      :key="iframeSrc"
       class="satmap-iframe"
       :class="{ ready: iframeReady }"
-      src="./satellitemap/index.html"
+      :src="iframeSrc"
       frameborder="0"
       allowfullscreen
       @load="onIframeLoad"
@@ -27,35 +28,48 @@
       </el-button>
     </div>
 
-    <div v-if="selectedSatellite" class="satellite-float-card">
-      <div class="float-card-head">
-        <div>
-          <strong>{{ selectedSatellite.name }}</strong>
-          <span>{{ selectedSatellite.instanceId }}</span>
+    <transition name="side-panel">
+      <div v-if="selectedSatellite" class="satellite-side-panel">
+        <div class="side-panel-head">
+          <div>
+            <strong>{{ selectedSatellite.name }}</strong>
+            <span>NORAD {{ selectedSatellite.id }} · {{ selectedSatellite.instanceId }}</span>
+          </div>
+          <span class="detail-status" :class="selectedSatellite.status">
+            {{ getStatusLabel(selectedSatellite.status) }}
+          </span>
         </div>
-        <span class="detail-status" :class="selectedSatellite.status">
-          {{ getStatusLabel(selectedSatellite.status) }}
-        </span>
+        <div class="side-panel-subtitle">
+          已选中卫星，轨迹正在地图上高亮显示
+        </div>
+        <div class="side-panel-list">
+          <div class="info-row">
+            <label>轨道类型</label>
+            <strong>{{ getOrbitClass(selectedSatellite.alt) }}</strong>
+          </div>
+          <div class="info-row">
+            <label>轨道高度</label>
+            <strong>{{ Math.round((selectedSatellite.alt || 0) / 1000) }} km</strong>
+          </div>
+          <div class="info-row">
+            <label>轨道速度</label>
+            <strong>{{ selectedOrbitMetrics.speedKps.toFixed(2) }} km/s</strong>
+          </div>
+          <div class="info-row">
+            <label>轨道周期</label>
+            <strong>{{ selectedOrbitMetrics.periodMinutes.toFixed(1) }} min</strong>
+          </div>
+        </div>
+        <div class="side-panel-actions">
+          <el-button type="primary" plain @click="showInfoDialog = true">
+            查看卫星信息
+          </el-button>
+          <el-button plain @click="clearIframeOrbit">
+            关闭轨迹
+          </el-button>
+        </div>
       </div>
-      <div class="float-card-grid">
-        <div class="float-item">
-          <label>轨道</label>
-          <strong>已高亮显示</strong>
-        </div>
-        <div class="float-item">
-          <label>状态</label>
-          <strong>{{ getStatusLabel(selectedSatellite.status) }}</strong>
-        </div>
-        <div class="float-item">
-          <label>CPU</label>
-          <strong>{{ selectedSatellite.cpu.toFixed(1) }}%</strong>
-        </div>
-        <div class="float-item">
-          <label>温度</label>
-          <strong>{{ selectedSatellite.temp.toFixed(1) }}°C</strong>
-        </div>
-      </div>
-    </div>
+    </transition>
 
     <el-dialog v-model="showAllStatus" title="卫星状态" width="420px" append-to-body>
       <div class="status-dialog-list">
@@ -143,6 +157,72 @@
         <el-button type="primary" @click="saveEdit">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="showInfoDialog"
+      title="卫星信息"
+      width="640px"
+      append-to-body
+    >
+      <div v-if="selectedSatellite" class="satellite-info-dialog">
+        <div class="info-hero">
+          <div>
+            <strong>{{ selectedSatellite.name }}</strong>
+            <span>NORAD {{ selectedSatellite.id }} · {{ selectedSatellite.instanceId }}</span>
+          </div>
+          <span class="detail-status" :class="selectedSatellite.status">
+            {{ getStatusLabel(selectedSatellite.status) }}
+          </span>
+        </div>
+
+        <div class="info-section">
+          <div class="section-title">轨道与运行信息</div>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-card emphasis">
+            <label>卫星编号</label>
+            <strong>#{{ selectedSatellite.id }}</strong>
+          </div>
+          <div class="info-card emphasis">
+            <label>卫星类型</label>
+            <strong>{{ getOrbitClass(selectedSatellite.alt) }}</strong>
+          </div>
+          <div class="info-card">
+            <label>轨道高度</label>
+            <strong>{{ Math.round((selectedSatellite.alt || 0) / 1000) }} km</strong>
+          </div>
+          <div class="info-card">
+            <label>轨道倾角</label>
+            <strong>{{ Number(selectedSatellite.inclination || 0).toFixed(1) }}°</strong>
+          </div>
+          <div class="info-card">
+            <label>基准经度</label>
+            <strong>{{ Number(selectedSatellite.baseLon || 0).toFixed(1) }}°</strong>
+          </div>
+          <div class="info-card">
+            <label>轨道周期</label>
+            <strong>{{ selectedOrbitMetrics.periodMinutes.toFixed(1) }} 分钟</strong>
+          </div>
+          <div class="info-card">
+            <label>轨道速度</label>
+            <strong>{{ selectedOrbitMetrics.speedKps.toFixed(2) }} km/s</strong>
+          </div>
+          <div class="info-card emphasis">
+            <label>运行状态</label>
+            <strong>{{ getStatusLabel(selectedSatellite.status) }}</strong>
+          </div>
+          <div class="info-card">
+            <label>CPU</label>
+            <strong>{{ selectedSatellite.cpu.toFixed(1) }}%</strong>
+          </div>
+          <div class="info-card">
+            <label>温度</label>
+            <strong>{{ selectedSatellite.temp.toFixed(1) }}°C</strong>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -163,13 +243,18 @@ const satelliteStore = useSatelliteStore()
 const containerRef = ref<HTMLElement | null>(null)
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const iframeReady = ref(false)
+const iframeSrc = './satellitemap/index.html?embed=c4&v=21'
 const showAllStatus = ref(props.showAllStatus)
 const isEditMode = ref(false)
 const showEditDialog = ref(false)
+const showInfoDialog = ref(false)
 const iframeSetupRuns = ref(0)
 const targetEyeDistance = 3.4
+const EARTH_RADIUS_METERS = 6378137
+const EARTH_MU = 3.986004418e14
 let bordersKeepAliveTimer: ReturnType<typeof setInterval> | null = null
 const selectedSatellite = computed(() => satelliteStore.selectedSatellite)
+const selectedOrbitMetrics = computed(() => getOrbitMetrics(selectedSatellite.value?.alt || 500000))
 const editForm = ref({
   id: 0,
   name: '',
@@ -190,6 +275,25 @@ function focusSatellite(sat: any) {
   satelliteStore.selectedSatelliteId = sat.id
   showAllStatus.value = true
   sendToIframe({ type: 'focus-satellite', norad_id: sat.id })
+}
+
+function getOrbitClass(altitudeMeters: number) {
+  const altitudeKm = Number(altitudeMeters || 0) / 1000
+  if (altitudeKm >= 30000) return 'GEO'
+  if (altitudeKm >= 10000) return 'MEO'
+  return 'LEO'
+}
+
+function getOrbitMetrics(altitudeMeters: number) {
+  const altitude = Math.max(Number(altitudeMeters || 0), 0)
+  const orbitalRadius = EARTH_RADIUS_METERS + altitude
+  const speedMps = Math.sqrt(EARTH_MU / orbitalRadius)
+  const periodSeconds = 2 * Math.PI * Math.sqrt((orbitalRadius ** 3) / EARTH_MU)
+
+  return {
+    speedKps: speedMps / 1000,
+    periodMinutes: periodSeconds / 60
+  }
 }
 
 function resetEditForm() {
@@ -258,15 +362,10 @@ function deleteSat(id: number) {
   }
 }
 
-let suppressNextClick = false
-
 function clearIframeOrbit() {
-  const win = iframeRef.value?.contentWindow as any
-  if (!win) return
-  const g = win.globe || win.blueGlobe
-  if (g && typeof g._clearAllOrbits === 'function') {
-    g._clearAllOrbits()
-  }
+  sendToIframe({ type: 'clear-orbit' })
+  satelliteStore.selectedSatelliteId = null
+  showInfoDialog.value = false
 }
 
 function sendToIframe(msg: Record<string, unknown>) {
@@ -303,12 +402,108 @@ function hideIframeChrome() {
   styleEl.textContent = `
     html, body { width: 100%; height: 100%; overflow: hidden !important; margin: 0; padding: 0; }
     #glCanvas { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; display: block !important; z-index: 0; }
-    body > *:not(canvas):not(script):not(style):not(noscript) {
+    #navbar-desktop,
+    #mobile-menu-overlay,
+    #mobile-menu,
+    #about_modal,
+    #starlink-welcome,
+    #splash-screen,
+    #search-trigger-icon,
+    #lv_info,
+    #pov_info,
+    #pov_reentry_info,
+    #vis_help_icon,
+    #helpModal,
+    #bgtitle {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    #dropdownMore,
+    #dropdownTypes,
+    #dropdownFunctions,
+    #dropdownCalculators,
+    #dropdownShare,
+    #dropdownSettings,
+    #dropdownInfo,
+    #dropdownConstellationData,
+    #types_menu_items,
+    #constellation_menu_items,
+    #mobile-constellation-menu,
+    #mobile-more-menu,
+    #mobile_types_menu_items,
+    #desktop-constellation-data-item,
+    #timeline-tab-list,
+    #growth-panel,
+    #launches-panel,
+    #decays-panel,
+    #events-panel,
+    #bottom-bar,
+    #controls,
+    #control-panel,
+    .navbar-dropdown-menu,
+    .navbar-dropdown-list,
+    .navbar-desktop-dropdown-item,
+    .navbar-mobile-dropdown-item,
+    .bottom-panel,
+    .right-panel,
+    .side-panel,
+    .overlay-panel,
+    .draggable-window,
+    .lv-info-window,
+    .sat-info-panel,
+    .info-panel {
       display: none !important;
       visibility: hidden !important;
       pointer-events: none !important;
     }
   `
+
+  const removeSelectors = [
+    'nav',
+    '#navbar-desktop',
+    '#mobile-menu-overlay',
+    '#mobile-menu',
+    '#timeline_chart_modal',
+    '#credits_modal',
+    '#about_modal',
+    '#starlink-welcome',
+    '#splash-screen',
+    '#dropdownNews',
+    '#dropdownNavbar',
+    '#dropdownTypes',
+    '#dropdownFunctions',
+    '#dropdownMore',
+    '#timeline-tab-content',
+    '#timeline-tab-list',
+    '#growth-panel',
+    '#launches-panel',
+    '#decays-panel',
+    '#orbits-panel',
+    '#ground-stations-panel',
+    '#events-panel',
+    '#desktop-constellation-data-item',
+    '.navbar-dropdown-menu',
+    '.navbar-dropdown-list',
+    '.navbar-mobile-menu',
+    '.bottom-panel',
+    '.right-panel',
+    '.side-panel',
+    '.overlay-panel',
+    '.draggable-window',
+    '.lv-info-window',
+    '.sat-info-panel',
+    '.info-panel'
+  ]
+  removeSelectors.forEach((selector) => {
+    doc.querySelectorAll(selector).forEach((node) => node.remove())
+  })
+  Array.from(doc.body.children).forEach((node) => {
+    const el = node as HTMLElement
+    const id = el.id || ''
+    if (id === 'glCanvas' || id === 'c4-link-overlay') return
+    el.remove()
+  })
 
   const canvas = doc.getElementById('glCanvas') as HTMLCanvasElement | null
   if (canvas) {
@@ -322,9 +517,13 @@ function hideIframeChrome() {
   const globe = (win as any).globe
   if (globe) {
     if ('show_borders' in globe) globe.show_borders = 2
-    if ('show_labels' in globe) globe.show_labels = 0
     if ('show_texstyle' in globe) globe.show_texstyle = 2
-    if ('show_dotlighting' in globe) globe.show_dotlighting = 2
+    if ('show_dotlighting' in globe) globe.show_dotlighting = 1
+    if ('show_skybox' in globe) globe.show_skybox = 2
+    if ('show_sun' in globe) globe.show_sun = 1
+    if ('show_clouds' in globe) globe.show_clouds = 0
+    if ('show_rotating' in globe) globe.show_rotating = 1
+    if ('show_labels' in globe) globe.show_labels = 1
     if ('requestOptimalZoom' in globe) globe.requestOptimalZoom = false
     if (typeof (globe as any).calculateOptimalZoom === 'function') {
       ;(globe as any).calculateOptimalZoom = () => null
@@ -337,30 +536,34 @@ function hideIframeChrome() {
   return true
 }
 
+function forceReferenceEarthVisuals() {
+  const win = iframeRef.value?.contentWindow as any
+  if (!win) return
+  const g = win.globe || win.blueGlobe
+  if (!g) return
+  if ('show_borders' in g) g.show_borders = 2
+  if ('show_texstyle' in g) g.show_texstyle = 2
+  if ('show_dotlighting' in g) g.show_dotlighting = 1
+    if ('show_skybox' in g) g.show_skybox = 2
+  if ('show_sun' in g) g.show_sun = 1
+  if ('show_clouds' in g) g.show_clouds = 0
+  if ('show_rotating' in g) g.show_rotating = 1
+  if ('show_labels' in g) g.show_labels = 1
+}
+
 function scheduleIframeSetup() {
   const ok = hideIframeChrome()
-  // Also force borders on every tick in case globe resets it
-  const win = iframeRef.value?.contentWindow as any
-  if (win) {
-    const g = win.globe || win.blueGlobe
-    if (g) {
-      if ('show_borders' in g) g.show_borders = 2
-      if ('show_texstyle' in g) g.show_texstyle = 2
-    }
-  }
+  forceReferenceEarthVisuals()
   iframeSetupRuns.value += 1
   if (iframeSetupRuns.value < 40) {
     window.setTimeout(scheduleIframeSetup, 300)
   } else {
     if (ok) iframeReady.value = true
-    // Keep forcing show_borders=2 indefinitely so the globe never loses country borders
+    // Keep the reference globe styling alive in case the underlying map resets it later.
     if (!bordersKeepAliveTimer) {
       bordersKeepAliveTimer = setInterval(() => {
-        const w = iframeRef.value?.contentWindow as any
-        if (!w) return
-        const g = w.globe || w.blueGlobe
-        if (g && 'show_borders' in g) g.show_borders = 2
-      }, 1000)
+        forceReferenceEarthVisuals()
+      }, 250)
     }
   }
   if (ok && iframeSetupRuns.value === 5) iframeReady.value = true
@@ -387,14 +590,7 @@ function onMessage(event: MessageEvent) {
     } else {
       const sat = satelliteStore.satellites.find((item) => item.id === id)
       if (sat) {
-        if (satelliteStore.selectedSatelliteId === sat.id) {
-          // Same satellite clicked again — toggle off
-          suppressNextClick = true
-          satelliteStore.selectedSatelliteId = null
-          clearIframeOrbit()
-        } else {
-          satelliteStore.selectedSatelliteId = sat.id
-        }
+        satelliteStore.selectedSatelliteId = sat.id
       }
     }
     return
@@ -402,19 +598,9 @@ function onMessage(event: MessageEvent) {
 
   if (data.source !== 'c4-bridge') return
 
-  if (data.type === 'satellite-clicked') {
-    if (suppressNextClick) {
-      suppressNextClick = false
-      return
-    }
-    const noradId: number = data.payload?.norad_id
-    if (!noradId) return
-    const sat = satelliteStore.satellites.find((item) => item.id === noradId)
-    if (sat) satelliteStore.selectedSatelliteId = sat.id
-  }
-
   if (data.type === 'satellite-deselected') {
     satelliteStore.selectedSatelliteId = null
+    showInfoDialog.value = false
   }
 }
 
@@ -432,6 +618,33 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+:scope {
+  --sat-panel-text: #f5f9fd;
+  --sat-panel-muted: #9cb3c7;
+  --sat-panel-soft: #89a3bb;
+  --sat-dialog-text: #f5f9fd;
+  --sat-dialog-muted: #9cb3c7;
+  --sat-dialog-title: #d8e7f5;
+  --sat-dialog-card-bg: rgba(255, 255, 255, 0.035);
+  --sat-dialog-card-border: rgba(255, 255, 255, 0.06);
+  --sat-dialog-hero-bg: linear-gradient(180deg, rgba(10, 22, 37, 0.95), rgba(7, 14, 23, 0.9));
+  --sat-dialog-hero-border: rgba(136, 170, 208, 0.14);
+  --sat-dialog-emphasis-bg: linear-gradient(180deg, rgba(20, 39, 61, 0.58), rgba(13, 23, 35, 0.48));
+  --sat-dialog-emphasis-border: rgba(94, 153, 214, 0.24);
+}
+
+:global(html:not(.dark)) #satmap-container {
+  --sat-dialog-text: #1f2937;
+  --sat-dialog-muted: #5b6b7f;
+  --sat-dialog-title: #1f3652;
+  --sat-dialog-card-bg: rgba(241, 245, 249, 0.92);
+  --sat-dialog-card-border: rgba(148, 163, 184, 0.3);
+  --sat-dialog-hero-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(236, 242, 248, 0.96));
+  --sat-dialog-hero-border: rgba(148, 163, 184, 0.32);
+  --sat-dialog-emphasis-bg: linear-gradient(180deg, rgba(226, 239, 251, 0.96), rgba(236, 244, 252, 0.92));
+  --sat-dialog-emphasis-border: rgba(96, 165, 250, 0.3);
+}
+
 #satmap-container {
   position: relative;
   width: 100%;
@@ -511,14 +724,14 @@ onBeforeUnmount(() => {
 .float-card-head strong,
 .float-item strong,
 .edit-item-info strong {
-  color: #f5f9fd;
+  color: var(--sat-panel-text);
 }
 
 .status-chip-main span,
 .float-card-head span,
 .float-item label,
 .edit-item-info span {
-  color: #9cb3c7;
+  color: var(--sat-panel-muted);
 }
 
 .status-chip-meta {
@@ -544,27 +757,42 @@ onBeforeUnmount(() => {
 .status-badge.danger, .detail-status.danger { color: #ff8c8c; background: rgba(255, 107, 107, 0.16); }
 .status-badge.offline, .detail-status.offline { color: #b6c2cf; background: rgba(123, 135, 148, 0.18); }
 
-.satellite-float-card {
+.satellite-side-panel {
   position: absolute;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
+  top: 86px;
+  right: 24px;
   z-index: 12;
-  width: min(520px, calc(100% - 32px));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 16px;
-  background: rgba(7, 14, 23, 0.72);
-  backdrop-filter: blur(16px);
+  width: min(340px, calc(100% - 32px));
+  border: 1px solid rgba(136, 170, 208, 0.18);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(9, 16, 26, 0.88);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(12px);
   pointer-events: auto;
 }
 
-.float-card-head {
+.side-panel-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+}
+
+.side-panel-head > div,
+.info-hero > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.side-panel-subtitle {
+  color: var(--sat-panel-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .collapse-btn {
@@ -573,10 +801,11 @@ onBeforeUnmount(() => {
   color: #eaf3fb;
 }
 
-.float-card-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+.side-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 8px;
 }
 
 .float-item {
@@ -608,6 +837,108 @@ onBeforeUnmount(() => {
 
 .float-actions .el-button {
   flex: 1;
+}
+
+.side-panel-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.side-panel-actions .el-button {
+  flex: 1;
+  min-height: 34px;
+  border-radius: 10px;
+}
+
+.satellite-info-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--sat-dialog-hero-border);
+  background: var(--sat-dialog-hero-bg);
+}
+
+.info-hero strong,
+.info-card strong {
+  color: var(--sat-dialog-text);
+}
+
+.info-hero span,
+.info-card label {
+  color: var(--sat-dialog-muted);
+}
+
+.info-section {
+  display: flex;
+  align-items: center;
+}
+
+.section-title {
+  color: var(--sat-dialog-title);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.info-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--sat-dialog-card-bg);
+  border: 1px solid var(--sat-dialog-card-border);
+}
+
+.info-card label,
+.info-card strong {
+  display: block;
+}
+
+.info-card strong {
+  margin-top: 5px;
+}
+
+.info-card.emphasis {
+  background: var(--sat-dialog-emphasis-bg);
+  border-color: var(--sat-dialog-emphasis-border);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row label {
+  color: var(--sat-dialog-muted);
+  font-size: 12px;
+}
+
+.info-row strong {
+  color: var(--sat-dialog-text);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .edit-dialog {
@@ -670,6 +1001,17 @@ onBeforeUnmount(() => {
   transform: translate(-50%, 10px);
 }
 
+.side-panel-enter-active,
+.side-panel-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.side-panel-enter-from,
+.side-panel-leave-to {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
 @media (max-width: 960px) {
   .action-btns {
     top: 16px;
@@ -678,11 +1020,16 @@ onBeforeUnmount(() => {
     justify-content: flex-end;
   }
 
-  .satellite-float-card {
-    bottom: 16px;
+  .satellite-side-panel {
+    top: auto;
+    right: 16px;
     left: 16px;
-    transform: none;
+    bottom: 16px;
     width: auto;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 
   .edit-dialog {
@@ -690,6 +1037,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-
-
-

@@ -383,8 +383,8 @@ if (document.readyState === 'loading') {
   initSplash();
 }
 </script>
-  <script src="c4-constellation.js?v=2"></script>
-  <script src="c4-bridge.js?v=2"></script>
+  <script src="c4-constellation.js?v=6"></script>
+  <script src="c4-bridge.js?v=6"></script>
   <script type="module" crossorigin src="assets/main.CETTShQh.js"></script>
   <link rel="stylesheet" crossorigin href="assets/main.2XFAytbH.css">
 </head>
@@ -1319,86 +1319,39 @@ if (document.readyState === 'loading') {
 
     <canvas id="glCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
 
-<!-- Help Icon -->
-<div id="vis_help_icon" onclick="window.toggleHelpModal()">i</div>
+<!-- C4 embed mode removes help and floating info widgets -->
 
-<!-- Help Modal -->
-<div id="helpModal" style="display: none;">
-  <div id="helpModalOverlay"></div>
-  <div id="helpModalContent" onpointerdown="event.stopPropagation()">
-    <div id="helpTabs">
-      <div id="desktopHelpTab" class="help-tab active" data-translate="help.desktop">Desktop</div>
-      <div id="touchHelpTab" class="help-tab" data-translate="help.touch">Touch</div>
-    </div>
-    <div id="helpPanels">
-      <div id="desktopHelpPanel">
-        <div class="control-spacer"></div>
-        <table class="control-table">
-          <tr>
-            <td class="control-action" data-translate="help.rotateGlobe">Rotate Globe</td>
-            <td class="control-key" data-translate="help.clickDrag">Click-Drag</td>
-          </tr>
-          <tr>
-            <td class="control-action" data-translate="help.zoom">Zoom</td>
-            <td class="control-key" data-translate="help.mouseWheel">Mouse Wheel</td>
-          </tr>
-          <tr>
-            <td class="control-action" data-translate="help.fullscreen">Fullscreen</td>
-            <td class="control-key" data-translate="help.longClick">Long Click</td>
-          </tr>
-          <tr>
-            <td class="control-action" data-translate="help.search">Search</td>
-            <td class="control-key" data-translate="help.spacebar">Spacebar</td>
-          </tr>
-        </table>
-      </div>
-      <div id="touchHelpPanel" class="hidden">
-        <div class="control-spacer"></div>
-        <table class="control-table">
-          <tr>
-            <td class="control-action" data-translate="help.rotateGlobe">Rotate Globe</td>
-            <td class="control-key" data-translate="help.touchDrag">Touch-Drag</td>
-          </tr>
-          <tr>
-            <td class="control-action" data-translate="help.zoom">Zoom</td>
-            <td class="control-key" data-translate="help.pinch">Pinch</td>
-          </tr>
-          <tr>
-            <td class="control-action" data-translate="help.fullscreen">Fullscreen</td>
-            <td class="control-key" data-translate="help.longTouch">Long Touch</td>
-          </tr>
-        </table>
-      </div>
-    </div>
-    <div class="help-separator"></div>
-    <div class="help-drag-explanation">
-      <svg fill="currentColor" width="16" height="16" viewBox="0 0 1024 1024" class="drag-handle-icon">
-        <path d="M909.3 506.3L781.7 405.6a7.23 7.23 0 0 0-11.7 5.7V476H548V254h64.8c6 0 9.4-7 5.7-11.7L517.7 114.7a7.14 7.14 0 0 0-11.3 0L405.6 242.3a7.23 7.23 0 0 0 5.7 11.7H476v222H254v-64.8c0-6-7-9.4-11.7-5.7L114.7 506.3a7.14 7.14 0 0 0 0 11.3l127.5 100.8c4.7 3.7 11.7.4 11.7-5.7V548h222v222h-64.8c-6 0-9.4 7-5.7 11.7l100.8 127.5c2.9 3.7 8.5 3.7 11.3 0l100.8-127.5c3.7-4.7.4-11.7-5.7-11.7H548V548h222v64.8c0 6 7 9.4 11.7 5.7l127.5-100.8a7.3 7.3 0 0 0 .1-11.4z"></path>
-      </svg>
-      <span data-translate="help.dragExplanation">Window can be dragged with click or touch</span>
-    </div>
-  </div>
-</div>
-<div id="lv_info" class="draggable-window lv-info-window dragging" style="top: 150px; left: 30px;"><div class="draggable-header" id="lv_info_header"><h3 class="draggable-title"><svg fill="currentColor" width="16" height="16" viewBox="0 0 1024 1024" class="drag-handle-icon">
-      <path d="M909.3 506.3L781.7 405.6a7.23 7.23 0 0 0-11.7 5.7V476H548V254h64.8c6 0 9.4-7 5.7-11.7L517.7 114.7a7.14 7.14 0 0 0-11.3 0L405.6 242.3a7.23 7.23 0 0 0 5.7 11.7H476v222H254v-64.8c0-6-7-9.4-11.7-5.7L114.7 506.3a7.14 7.14 0 0 0 0 11.3l127.5 100.8c4.7 3.7 11.7.4 11.7-5.7V548h222v222h-64.8c-6 0-9.4 7-5.7 11.7l100.8 127.5c2.9 3.7 8.5 3.7 11.3 0l100.8-127.5c3.7-4.7.4-11.7-5.7-11.7H548V548h222v64.8c0 6 7 9.4 11.7 5.7l127.5-100.8a7.3 7.3 0 0 0 .1-11.4z"></path>
-    </svg>Starlink</h3><button type="button" class="close-button-tiny" id="lv_info_close" title="Close">鉁?/button></div><div class="draggable-content lv-info-content">
-                            <div class="last-visit-stats" style="font-size:0.8rem;line-height:1.6;">
-                                <div><span class="text-gray-200"><span class="inline-block w-8 h-3 bg-gray-600 rounded animate-pulse align-middle"></span> satellites tracking</span></div>
-                                <div style="margin-bottom:4px;"><span class="text-green-300">+<span class="inline-block w-5 h-3 bg-gray-600 rounded animate-pulse align-middle"></span> launched</span><br><span class="text-green-300">+<span class="inline-block w-5 h-3 bg-gray-600 rounded animate-pulse align-middle"></span> in orbit</span></div>
-                                <a href="/constellation/starlink" class="text-blue-400 hover:text-blue-300 text-xs">View full Starlink page 鈫?/a>
-                            </div>
-                        </div></div>
-
-<div id="search-trigger-icon">
-  <svg class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-    <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
-    <path d="M4 12a8 8 0 018-8" stroke-opacity="0.75"></path>
-  </svg>
-</div>
+<!-- C4 embed mode removes search trigger icon -->
 
 
 <script>
 // Helper function for menu item actions with automatic dropdown hiding
+function c4StripEmbedChrome() {
+  const selectors = [
+    'nav',
+    '#navbar-desktop',
+    '#mobile-menu',
+    '#mobile-menu-overlay',
+    '#dropdownNews',
+    '#dropdownNavbar',
+    '#dropdownTypes',
+    '#dropdownFunctions',
+    '#dropdownMore',
+    '#desktop-constellation-data-item',
+    '#vis_help_icon',
+    '#helpModal',
+    '#lv_info',
+    '#search-trigger-icon'
+  ];
+  selectors.forEach((selector) => {
+    document.querySelectorAll(selector).forEach((node) => node.remove());
+  });
+}
+c4StripEmbedChrome();
+document.addEventListener('DOMContentLoaded', c4StripEmbedChrome);
+setTimeout(c4StripEmbedChrome, 0);
+setTimeout(c4StripEmbedChrome, 300);
+
 function menuAction(action, hideDropdown = true) {
   // Execute the action
   if (typeof action === 'function') {

@@ -1,12 +1,8 @@
-// C4 Bridge — postMessage communication between parent (Frontend-new) and this iframe
-// - Listens for satellite click events from the globe and notifies the parent
-// - Listens for messages from parent to update satellite data
+// C4 Bridge - postMessage communication between parent (Frontend-new) and this iframe.
+// Selection toggle is handled entirely in c4-constellation.js.
+// This bridge only announces readiness so parent/iframe do not double-handle clicks.
 (function () {
   'use strict';
-
-  var selectedOrbitSatId = null;
-
-  // ─── Helpers ────────────────────────────────────────────────────────────────
 
   function notifyParent(type, payload) {
     try {
@@ -14,45 +10,13 @@
     } catch (e) {}
   }
 
-  // ─── Intercept satellite clicks ──────────────────────────────────────────────
-  // The globe calls _calculateSatelliteOrbit when a user clicks a satellite.
-  // We wrap it to (a) show the orbit as usual and (b) notify the parent window.
-
   function patchGlobe(globe) {
     if (globe._c4BridgePatched) return;
     globe._c4BridgePatched = true;
 
-    // Wrap _calculateSatelliteOrbit to intercept clicks
-    if (typeof globe._calculateSatelliteOrbit === 'function') {
-      var origCalc = globe._calculateSatelliteOrbit.bind(globe);
-      globe._calculateSatelliteOrbit = function (sat) {
-        var result = origCalc(sat);
-        if (sat && sat.norad_id) {
-          selectedOrbitSatId = sat.norad_id;
-          notifyParent('satellite-clicked', {
-            norad_id: sat.norad_id,
-            name: sat.name || (sat.metadata && sat.metadata.sat_name) || String(sat.norad_id)
-          });
-        }
-        return result;
-      };
-    }
-
-    // Also wrap _clearAllOrbits to notify parent of deselect
-    if (typeof globe._clearAllOrbits === 'function') {
-      var origClear = globe._clearAllOrbits.bind(globe);
-      globe._clearAllOrbits = function () {
-        selectedOrbitSatId = null;
-        notifyParent('satellite-deselected', {});
-        return origClear();
-      };
-    }
-
     notifyParent('bridge-ready', {});
-    console.log('[C4 Bridge] Globe patched successfully');
+    console.log('[C4 Bridge] Globe patched');
   }
-
-  // ─── Wait for globe object ───────────────────────────────────────────────────
 
   var bridgeDone = false;
   var checkInterval = setInterval(function () {
@@ -66,13 +30,11 @@
         return;
       }
     }
-    // Also scan all window keys
     try {
       var keys = Object.keys(window);
       for (var j = 0; j < keys.length; j++) {
         var w = window[keys[j]];
-        if (w && typeof w === 'object' && typeof w._calculateSatelliteOrbit === 'function' &&
-            !w._c4BridgePatched) {
+        if (w && typeof w === 'object' && typeof w._calculateSatelliteOrbit === 'function' && !w._c4BridgePatched) {
           clearInterval(checkInterval);
           bridgeDone = true;
           patchGlobe(w);
@@ -89,7 +51,6 @@
     }
   }, 30000);
 
-  // Also intercept defineProperty assignments to globe/blueGlobe
   function watchGlobeProperty(key) {
     var _val;
     try {
@@ -100,13 +61,13 @@
         set: function (v) {
           _val = v;
           if (v && typeof v === 'object' && !bridgeDone) {
-            // Wait a tick for c4-constellation.js to also patch it first
             setTimeout(function () { patchGlobe(v); }, 200);
           }
         }
       });
     } catch (e) {}
   }
+
   watchGlobeProperty('globe');
   watchGlobeProperty('blueGlobe');
 

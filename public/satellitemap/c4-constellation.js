@@ -11,13 +11,15 @@
   var linkCanvas;
   var linkCtx;
   var linkAnimId = 0;
-  var c4Color = [0.10, 0.48, 0.31, 1.0];
+  var c4Color = [0.36, 0.84, 0.62, 1.0];
   var peHelper = null;
   var peHelperLoading = false;
   var diagnosticsTimer = 0;
-  var selectedOrbitSatId = null;
+  var selectedOrbitSatIds = Object.create(null);
   var selectedSatId = null;
   var currentGlobe = null;
+  var lastToggleSatId = null;
+  var lastToggleAt = 0;
   var groundStations = [
     { id: 'gs-miyun', lat: 40.3764, lon: 116.8434 },
     { id: 'gs-kashi', lat: 39.4704, lon: 75.9898 },
@@ -37,18 +39,130 @@
     return null;
   }
 
+  function installShaderPatch() {
+    function patchShaderSourceImpl(proto) {
+      if (!proto || typeof proto.shaderSource !== 'function' || proto._c4ShaderPatched) return;
+      var originalShaderSource = proto.shaderSource;
+      proto.shaderSource = function(shader, source) {
+        if (typeof source === 'string' && source.indexOf('float landFactor = maskColor.r;') !== -1) {
+          source = source.replace(
+            'float landFactor = maskColor.r; vec3 dayOcean = vec3(4.0/255.0, 19.0/255.0, 31.0/255.0);',
+            'float landFactor = step(0.5, maskColor.r); vec3 dayOcean = vec3(0.0, 0.0, 0.0);'
+          );
+          source = source.replace(
+            'float landFactor = maskColor.r; vec3 fallbackOcean = vec3(4.0/255.0, 19.0/255.0, 31.0/255.0);',
+            'float landFactor = step(0.5, maskColor.r); vec3 fallbackOcean = vec3(0.0, 0.0, 0.0);'
+          );
+        }
+        return originalShaderSource.call(this, shader, source);
+      };
+      proto._c4ShaderPatched = true;
+      logStatus('Installed runtime globe shader patch');
+    }
+
+    try { patchShaderSourceImpl(window.WebGLRenderingContext && window.WebGLRenderingContext.prototype); } catch (e) {}
+    try { patchShaderSourceImpl(window.WebGL2RenderingContext && window.WebGL2RenderingContext.prototype); } catch (e) {}
+  }
+
+  installShaderPatch();
+
   // Hide unwanted UI panels injected by the globe library
   function hideGlobeUI() {
-    var ids = ['lv_info', 'pov_info', 'pov_reentry_info', 'search-trigger-icon', 'vis_help_icon', 'helpModal', 'bgtitle'];
+    var ids = [
+      'lv_info',
+      'pov_info',
+      'pov_reentry_info',
+      'search-trigger-icon',
+      'vis_help_icon',
+      'helpModal',
+      'bgtitle',
+      'navbar-desktop',
+      'mobile-menu-overlay',
+      'mobile-menu',
+      'timeline_chart_modal',
+      'credits_modal',
+      'about_modal',
+      'starlink-welcome',
+      'splash-screen',
+      'about-get-started',
+      'dropdownNews',
+      'dropdownNavbar',
+      'dropdownTypes',
+      'dropdownFunctions',
+      'dropdownMore',
+      'desktop-constellation-data-item',
+      'timeline-tab-list',
+      'timeline-tab-content',
+      'growth-panel',
+      'launches-panel',
+      'decays-panel',
+      'orbits-panel',
+      'ground-stations-panel',
+      'events-panel',
+      'sat-info',
+      'info-panel',
+      'bottom-bar',
+      'right-panel',
+      'sidebar',
+      'controls',
+      'control-panel'
+    ];
     ids.forEach(function(id) {
       var el = document.getElementById(id);
-      if (el) el.style.display = 'none';
+      if (el) el.remove();
     });
+    var nav = document.querySelector('nav');
+    if (nav) nav.remove();
     // Hide any draggable windows and info panels
-    var selectors = ['.draggable-window', '.lv-info-window', '.sat-info-panel', '.info-panel'];
+    var selectors = [
+      '.draggable-window',
+      '.lv-info-window',
+      '.sat-info-panel',
+      '.info-panel',
+      '.navbar-dropdown-menu',
+      '.navbar-dropdown-list',
+      '.navbar-desktop-dropdown-item',
+      '.navbar-mobile-dropdown-item',
+      '.navbar-mobile-submenu-item',
+      '.navbar-mobile-menu',
+      '.bottom-panel',
+      '.right-panel',
+      '.side-panel',
+      '.overlay-panel',
+      '[class*="bottom-bar"]',
+      '[class*="right-bar"]',
+      '[class*="sat-panel"]',
+      '[class*="info-window"]'
+    ];
     selectors.forEach(function(sel) {
       var els = document.querySelectorAll(sel);
-      els.forEach(function(el) { el.style.display = 'none'; });
+      els.forEach(function(el) { el.remove(); });
+    });
+    var links = document.querySelectorAll('a, button, span');
+    links.forEach(function(el) {
+      var text = (el.textContent || '').trim().toUpperCase();
+      var href = (el.getAttribute && (el.getAttribute('href') || '')) || '';
+      if (
+        text === 'HELP' ||
+        text === 'DEV DIARY' ||
+        text === 'FEEDBACK' ||
+        href.indexOf('howtouse') !== -1 ||
+        href.indexOf('dev.to') !== -1
+      ) {
+        var row = el.closest('.flex');
+        if (row && row.textContent && /HELP|DEV DIARY|FEEDBACK/i.test(row.textContent)) {
+          row.remove();
+          return;
+        }
+        el.remove();
+      }
+    });
+    var maybeInfoBoxes = document.querySelectorAll('div, section, aside');
+    maybeInfoBoxes.forEach(function(el) {
+      var text = (el.textContent || '').toUpperCase();
+      if (text.indexOf('INCLINATION') !== -1 && text.indexOf('NORAD') !== -1) {
+        el.remove();
+      }
     });
   }
 
@@ -170,6 +284,10 @@
   function calcMM(alt) {
     var a = 6371 + alt;
     return Math.sqrt(398600.4418 / (a * a * a)) * 86400 / (2 * Math.PI);
+  }
+
+  function calcOrbitalSpeedDegPerSec(altKm) {
+    return calcMM(altKm) * 360 / 86400;
   }
 
   function makeOrbitalElements(s) {
@@ -584,6 +702,30 @@
   var done = false;
   var forceAttempts = 0;
 
+  window.addEventListener('message', function(event) {
+    var data = event && event.data;
+    if (!data || data.source !== 'c4-parent') return;
+
+    if (data.type === 'focus-satellite') {
+      var satId = parseInt(data.norad_id, 10);
+      if (!satId) return;
+      if (currentGlobe && typeof currentGlobe.focusSatellite === 'function') {
+        currentGlobe.focusSatellite(satId, 'c4-parent');
+      } else if (currentGlobe) {
+        toggleSatelliteSelection(currentGlobe, satId);
+      }
+      return;
+    }
+
+    if (data.type === 'clear-orbit') {
+      if (currentGlobe && typeof currentGlobe._clearAllOrbits === 'function') {
+        currentGlobe._clearAllOrbits();
+      } else if (currentGlobe) {
+        clearSelectedSatellite(currentGlobe);
+      }
+    }
+  });
+
   function degToRad(deg) {
     return deg * Math.PI / 180;
   }
@@ -622,6 +764,32 @@
       planeCount: 1,
       satsPerPlane: 6,
       localIndex: index - 444
+    };
+  }
+
+  function getSatelliteVisualProfile(cfg) {
+    if (cfg.altitude >= 35786) {
+      return { color: [0.98, 0.93, 0.62, 1.0], size: 5.9 };
+    }
+    if (cfg.altitude >= 21500) {
+      return { color: [0.58, 0.90, 1.0, 1.0], size: 5.1 };
+    }
+    if (cfg.altitude >= 540) {
+      return { color: [0.45, 0.96, 0.72, 1.0], size: 3.95 };
+    }
+    return { color: [0.40, 0.90, 0.82, 1.0], size: 3.8 };
+  }
+
+  function getSelectedSatelliteVisualProfile(cfg) {
+    var base = getSatelliteVisualProfile(cfg);
+    return {
+      color: [
+        Math.min(1, base.color[0] + 0.16),
+        Math.min(1, base.color[1] + 0.14),
+        Math.min(1, base.color[2] + 0.12),
+        1.0
+      ],
+      size: base.size + 1.2
     };
   }
 
@@ -1002,30 +1170,31 @@
   }
 
   function drawSelectedOrbit(globe, mat, width, height) {
-    if (!selectedOrbitSatId || !globe || !globe.dots || !globe.dots.movingPoints) return;
-    var sat = null;
-    for (var i = 0; i < globe.dots.movingPoints.length; i++) {
-      if (globe.dots.movingPoints[i] && globe.dots.movingPoints[i].norad_id === selectedOrbitSatId) {
-        sat = globe.dots.movingPoints[i];
-        break;
-      }
-    }
-    if (!sat || !sat._c4) return;
-
-    var samples = 160;
-    var prev = null;
+    var selectedIds = Object.keys(selectedOrbitSatIds);
+    if (!selectedIds.length || !globe || !globe.dots || !globe.dots.movingPoints) return;
     var drawn = 0;
-    var first = null;
-    for (var s = 0; s <= samples; s++) {
-      var point = orbitPoint(sat._c4.radius, sat._c4.inclination, sat._c4.raan, (s / samples) * 360);
-      if (!isFrontSide(globe, point)) {
-        prev = null;
-        continue;
+    for (var i = 0; i < selectedIds.length; i++) {
+      var satId = parseInt(selectedIds[i], 10);
+      var sat = null;
+      for (var j = 0; j < globe.dots.movingPoints.length; j++) {
+        if (globe.dots.movingPoints[j] && globe.dots.movingPoints[j].norad_id === satId) {
+          sat = globe.dots.movingPoints[j];
+          break;
+        }
       }
-      var screen = projectToScreen(mat, point, width, height);
-      if (!first && screen) first = screen;
-      if (prev && screen && drawLine(prev, screen, 'rgba(100, 255, 160, 0.72)', 1.15)) drawn++;
-      prev = screen;
+      if (!sat || !sat._c4) continue;
+      var samples = 160;
+      var prev = null;
+      for (var s = 0; s <= samples; s++) {
+        var point = orbitPoint(sat._c4.radius, sat._c4.inclination, sat._c4.raan, (s / samples) * 360);
+        if (!isFrontSide(globe, point)) {
+          prev = null;
+          continue;
+        }
+        var screen = projectToScreen(mat, point, width, height);
+        if (prev && screen && drawLine(prev, screen, 'rgba(100, 255, 160, 0.72)', 1.15)) drawn++;
+        prev = screen;
+      }
     }
     drawOverlay._lastDrawn = (drawOverlay._lastDrawn || 0) + drawn;
   }
@@ -1063,27 +1232,19 @@
       var baseAnomaly, speedDegPerSec, anomalyA, anomalyB;
 
       if (cfg.altitude === 35786) {
-        // GEO: stationary relative to Earth — rotate at Earth's sidereal rate
-        // Earth rotation: 360 deg / 86164 s ≈ 0.004178 deg/s
-        // RAAN for GEO is the fixed longitude slot (already set above as plane/planeCount*360 = slot/6*360 = slot*60)
-        speedDegPerSec = 0.004178;
+        // GEO keeps pace with Earth's sidereal rotation.
+        speedDegPerSec = 360 / 86164;
         baseAnomaly = 0;
-        // For GEO we fix RAAN = slot longitude, anomaly tracks Earth rotation
-        raan = slot * 60; // 0, 60, 120, 180, 240, 300 deg
+        raan = slot * 60;
         anomalyA = (baseAnomaly + phase * speedDegPerSec) % 360;
         anomalyB = (anomalyA + speedDegPerSec * 8) % 360;
       } else if (cfg.altitude === 21500) {
-        // MEO: orbital period ~12.6 hours; speed = 360 / period_seconds
-        // period_s = 86400 / mm where mm is revs/day
-        // calcMM(21500) is precomputed as mmMEO, period_s = 86400 / mmMEO * (1/2π) ... simpler:
-        // speed deg/s = mm * 360 / 86400
-        speedDegPerSec = mmMEO * 360 / 86400;
+        speedDegPerSec = calcOrbitalSpeedDegPerSec(cfg.altitude);
         baseAnomaly = (slot / cfg.satsPerPlane) * 360 + (plane / cfg.planeCount) * (360 / cfg.satsPerPlane);
         anomalyA = (baseAnomaly + phase * speedDegPerSec) % 360;
         anomalyB = (anomalyA + speedDegPerSec * 8) % 360;
       } else {
-        // LEO
-        speedDegPerSec = cfg.altitude === 550 ? 0.06 : 0.058;
+        speedDegPerSec = calcOrbitalSpeedDegPerSec(cfg.altitude);
         baseAnomaly = (slot / cfg.satsPerPlane) * 360 + (plane / cfg.planeCount) * (360 / cfg.satsPerPlane);
         anomalyA = (baseAnomaly + phase * speedDegPerSec) % 360;
         anomalyB = (anomalyA + speedDegPerSec * 8) % 360;
@@ -1101,8 +1262,7 @@
       vA[off] = b[0] - a[0];
       vA[off + 1] = b[1] - a[1];
       vA[off + 2] = b[2] - a[2];
-      // MEO and GEO dots are larger
-      dotSizes[idx] = cfg.altitude >= 21500 ? 5.0 : 3.4;
+      dotSizes[idx] = getSatelliteVisualProfile(cfg).size;
     }
 
     return {
@@ -1160,6 +1320,57 @@
     }, 2500);
   }
 
+  function setSelectedSatellite(globe, satId) {
+    var numericId = satId == null ? null : parseInt(satId, 10);
+    if (!numericId) return null;
+    selectedOrbitSatIds[numericId] = true;
+    selectedSatId = numericId;
+    if (globe) applyC4Positions(globe);
+    emitSelection(numericId);
+    if (globe) drawOverlay(globe);
+    return numericId;
+  }
+
+  function clearSelectedSatellite(globe, satId) {
+    var numericId = satId == null ? null : parseInt(satId, 10);
+    if (numericId) {
+      delete selectedOrbitSatIds[numericId];
+      if (selectedSatId === numericId) {
+        var remaining = Object.keys(selectedOrbitSatIds);
+        selectedSatId = remaining.length ? parseInt(remaining[remaining.length - 1], 10) : null;
+      }
+    } else {
+      selectedOrbitSatIds = Object.create(null);
+      selectedSatId = null;
+    }
+    if (globe) applyC4Positions(globe);
+    emitSelection(selectedSatId);
+    if (globe) drawOverlay(globe);
+  }
+
+  function toggleSatelliteSelection(globe, satId) {
+    var numericId = satId == null ? null : parseInt(satId, 10);
+    var now = Date.now();
+    if (numericId && lastToggleSatId === numericId && (now - lastToggleAt) < 220) {
+      return selectedSatId;
+    }
+    lastToggleSatId = numericId;
+    lastToggleAt = now;
+    if (!numericId) {
+      clearSelectedSatellite(globe);
+      if (globe && typeof globe._c4OrigClearAllOrbits === 'function') {
+        globe._c4OrigClearAllOrbits();
+      }
+      return null;
+    }
+    if (selectedOrbitSatIds[numericId]) {
+      clearSelectedSatellite(globe, numericId);
+      return null;
+    }
+    setSelectedSatellite(globe, numericId);
+    return numericId;
+  }
+
   function applyC4Positions(globe) {
     if (!globe || !globe.dots || !globe.dots.movingPoints) return false;
     currentGlobe = globe;
@@ -1200,6 +1411,10 @@
           : (Math.floor(cfg.localIndex / cfg.satsPerPlane) / cfg.planeCount) * 360
       };
       syncSatellitePresentation(sat, satState);
+      var satVisual = selectedOrbitSatIds[sat.norad_id]
+        ? getSelectedSatelliteVisualProfile(cfg)
+        : getSatelliteVisualProfile(cfg);
+      sat.color = satVisual.color.slice();
       if (sat.tleData) sat.tleData.norad = i + 1;
     }
 
@@ -1216,7 +1431,10 @@
       for (i = 0; i < count; i++) {
         var localState = satStateById[i + 1];
         var dotCfg = shellConfig(i);
-        var baseSize = dotCfg.altitude >= 21500 ? 5.5 : 3.6;
+        var dotVisual = selectedOrbitSatIds[i + 1]
+          ? getSelectedSatelliteVisualProfile(dotCfg)
+          : getSatelliteVisualProfile(dotCfg);
+        var baseSize = dotVisual.size;
         globe.dots.dotSizes[i] = localState && localState.enabled === false ? 0.0001 : baseSize;
       }
       uploadAttrib(globe, 'size', globe.dots.dotSizes);
@@ -1229,8 +1447,19 @@
     }
 
     var nonZero = countNonZeroPositions(globe.dots.dpA, count);
-    logStatus('Applied C4 positions, visibleCandidates=' + nonZero + ', size=3.6');
+      logStatus('Applied C4 positions, visibleCandidates=' + nonZero + ', enhanced orbital pacing');
     return true;
+  }
+
+  function findMovingSatellite(globe, satId) {
+    if (!globe || !globe.dots || !globe.dots.movingPoints) return null;
+    var numericId = satId == null ? null : parseInt(satId, 10);
+    if (!numericId) return null;
+    for (var i = 0; i < globe.dots.movingPoints.length; i++) {
+      var sat = globe.dots.movingPoints[i];
+      if (sat && sat.norad_id === numericId) return sat;
+    }
+    return null;
   }
 
   function tryLoadC4(globe, reason) {
@@ -1259,12 +1488,18 @@
     function forceEarthVisuals() {
       try { globe.show_borders = 2; } catch(e) {}
       try { globe.show_texstyle = 2; } catch(e) {}
-      try { globe.show_labels = 0; } catch(e) {}
-      try { globe.show_dotlighting = 2; } catch(e) {}
+      try { globe.show_labels = 1; } catch(e) {}
+      try { globe.show_dotlighting = 1; } catch(e) {}
+      try { globe.show_clouds = 0; } catch(e) {}
+      try { globe.show_skybox = 2; } catch(e) {}
+      try { globe.show_sun = 1; } catch(e) {}
+      try { globe.show_rotating = 1; } catch(e) {}
     }
 
-    globe._colorAndSize = function() {
-      return { color: c4Color.slice(), sz: 3.6 };
+    globe._colorAndSize = function(sat) {
+      var cfg = sat && typeof sat.ndx === 'number' ? shellConfig(sat.ndx) : null;
+      var profile = cfg ? getSatelliteVisualProfile(cfg) : { color: c4Color.slice(), size: 4.0 };
+      return { color: profile.color.slice(), sz: profile.size };
     };
     globe.sat_size_multiple = 1.9;
     // Force zoom and borders via polling (more reliable than Object.defineProperty)
@@ -1291,7 +1526,7 @@
     if (typeof globe._clearAllOrbits === 'function') {
       globe._c4OrigClearAllOrbits = globe._clearAllOrbits.bind(globe);
       globe._clearAllOrbits = function() {
-        selectedOrbitSatId = null;
+        clearSelectedSatellite(this);
         return this._c4OrigClearAllOrbits();
       };
     }
@@ -1300,10 +1535,7 @@
       globe._c4OrigCalculateSatelliteOrbit = globe._calculateSatelliteOrbit.bind(globe);
       globe._calculateSatelliteOrbit = function(sat) {
         if (this.show_constellation === 'c4' && sat && sat.norad_id) {
-          selectedOrbitSatId = sat.norad_id;
-          emitSelection(sat.norad_id);
-          drawOverlay(this);
-          return null;
+          return toggleSatelliteSelection(this, sat.norad_id);
         }
         return this._c4OrigCalculateSatelliteOrbit(sat);
       };
@@ -1312,11 +1544,26 @@
     if (typeof globe.focusSatellite === 'function') {
       globe._c4OrigFocusSatellite = globe.focusSatellite.bind(globe);
       globe.focusSatellite = function(id, mode) {
-        var result = this._c4OrigFocusSatellite(id, mode);
-        selectedOrbitSatId = parseInt(id, 10);
-        emitSelection(id);
-        drawOverlay(this);
-        return result;
+        var satId = parseInt(id, 10);
+        if (this.show_constellation === 'c4') {
+          if (mode === 'c4-parent') {
+            if (!satId) {
+              clearSelectedSatellite(this);
+              if (typeof this._c4OrigClearAllOrbits === 'function') {
+                this._c4OrigClearAllOrbits();
+              }
+              return null;
+            }
+            if (selectedOrbitSatIds[satId]) {
+              clearSelectedSatellite(this, satId);
+              return null;
+            }
+            setSelectedSatellite(this, satId);
+            return satId;
+          }
+          return this._c4OrigFocusSatellite(id, mode);
+        }
+        return this._c4OrigFocusSatellite(id, mode);
       };
     }
 
@@ -1421,12 +1668,10 @@
     },
     selectSatellite: function(id) {
       var satId = parseInt(id, 10);
-      selectedOrbitSatId = satId;
-      emitSelection(satId);
       if (currentGlobe && typeof currentGlobe.focusSatellite === 'function') {
-        currentGlobe.focusSatellite(satId);
+        currentGlobe.focusSatellite(satId, 'c4-parent');
       } else if (currentGlobe) {
-        drawOverlay(currentGlobe);
+        toggleSatelliteSelection(currentGlobe, satId);
       }
       return this.getSelectedSatellite();
     },
@@ -1453,9 +1698,7 @@
       state.status = 'inactive';
       satStateById[satId] = state;
       if (selectedSatId === satId) {
-        selectedSatId = null;
-        selectedOrbitSatId = null;
-        emitSelection(null);
+        clearSelectedSatellite(currentGlobe, satId);
       }
       refreshGlobeState();
       return state;
