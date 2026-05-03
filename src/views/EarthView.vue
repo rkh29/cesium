@@ -1,11 +1,11 @@
 <template>
   <div class="earth-view">
-    <SatelliteMapViewer :show-all-status="false" class="satmap-bg" />
+    <CesiumViewer />
   </div>
 </template>
 
 <script setup lang="ts">
-import SatelliteMapViewer from '../components/cesium/SatelliteMapViewer.vue'
+import CesiumViewer from '../components/cesium/CesiumViewer.vue'
 </script>
 
 <style scoped>
@@ -15,11 +15,5 @@ import SatelliteMapViewer from '../components/cesium/SatelliteMapViewer.vue'
   height: 100%;
   margin: 0;
   overflow: hidden;
-}
-
-.cesium-bg,
-.satmap-bg {
-  position: absolute;
-  inset: 0;
 }
 </style>

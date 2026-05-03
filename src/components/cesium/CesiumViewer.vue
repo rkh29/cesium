@@ -1,10 +1,11 @@
 <template>
   <div id="cesium-container" ref="cesiumContainer">
-    <div class="cinematic-overlay">
+    <div v-if="showOverlay" class="cinematic-overlay">
       <div class="overlay-top">
         <div class="theater-badge">卫星群视图</div>
         <div class="legend">
           <span><i class="dot leo"></i>低轨卫星</span>
+          <span><i class="dot meo"></i>中轨卫星</span>
           <span><i class="dot geo"></i>高轨卫星</span>
           <span><i class="dot ground"></i>地面站</span>
           <span><i class="dot warn"></i>告警链路</span>
@@ -117,7 +118,7 @@
     </transition>
 
     <el-button 
-      v-if="!isEditMode && !selectedSatelliteCard" 
+      v-if="showOverlay && !isEditMode && !selectedSatelliteCard" 
       class="floating-edit-btn" 
       type="primary" 
       plain
@@ -207,10 +208,12 @@ const props = withDefaults(
   defineProps<{
     showAllStatus?: boolean
     showFloatCard?: boolean
+    showOverlay?: boolean
   }>(),
   {
     showAllStatus: false,
-    showFloatCard: true
+    showFloatCard: true,
+    showOverlay: true
   }
 )
 
@@ -464,9 +467,16 @@ function buildScene(v: Cesium.Viewer) {
   )
 
   satellites.forEach((sat) => {
-    const isGeo = (sat.alt || 0) > 10000000
-    const color = statusColor(sat.status)
+    const isGeo = (sat.alt || 0) > 30000000
+    const isMeo = (sat.alt || 0) > 10000000 && (sat.alt || 0) <= 30000000
     const isAbnormal = sat.status === 'warning' || sat.status === 'danger' || sat.status === 'offline'
+    const color = isAbnormal
+      ? statusColor(sat.status)
+      : isGeo
+        ? Cesium.Color.fromCssColorString('#ff6b6b')
+        : isMeo
+          ? Cesium.Color.fromCssColorString('#ff9f43')
+          : Cesium.Color.fromCssColorString('#2ecc71')
 
     v.entities.add({
       id: String(sat.id),
@@ -476,8 +486,8 @@ function buildScene(v: Cesium.Viewer) {
         false
       ),
       point: {
-        pixelSize: isAbnormal ? (isGeo ? 12 : 9) : isGeo ? 5 : 3.5,
-        color: isAbnormal ? color : Cesium.Color.WHITE,
+        pixelSize: isAbnormal ? (isGeo ? 12 : isMeo ? 10 : 9) : isGeo ? 5 : isMeo ? 4 : 3.5,
+        color: color,
         outlineColor: isAbnormal ? color.withAlpha(0.95) : color.withAlpha(0.6),
         outlineWidth: isAbnormal ? 2 : 1,
         disableDepthTestDistance: Number.POSITIVE_INFINITY
@@ -556,7 +566,7 @@ function buildScene(v: Cesium.Viewer) {
         length: 180000,
         topRadius: 0,
         bottomRadius: 45000,
-        material: Cesium.Color.fromCssColorString('#7dcfff').withAlpha(0.55)
+        material: Cesium.Color.fromCssColorString('#f1c40f').withAlpha(0.7)
       },
       label: {
         text: ground.name,
@@ -649,26 +659,6 @@ onMounted(() => {
       v.scene.backgroundColor = Cesium.Color.fromCssColorString('#020811')
       v.scene.postProcessStages.fxaa.enabled = true
       v.shadowMap.enabled = false
-
-      if (!v.imageryLayers.length) {
-        try {
-          const highResMap = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
-            'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-            { enablePickFeatures: false }
-          )
-          v.imageryLayers.addImageryProvider(highResMap)
-        } catch (imageryError) {
-          // Keep the scene usable when the external imagery service is blocked or unavailable.
-          console.warn('[Cesium] Failed to load ArcGIS imagery, continuing without satellite basemap.', imageryError)
-        }
-      }
-
-      if (v.imageryLayers.length > 0) {
-        const imageryLayer = v.imageryLayers.get(0)
-        imageryLayer.brightness = 0.5
-        imageryLayer.gamma = 0.7
-        imageryLayer.saturation = 0.2
-      }
 
       const earthCenter = Cesium.Cartesian3.fromDegrees(108, 24, 0)
       v.camera.lookAt(
@@ -776,14 +766,89 @@ onBeforeUnmount(() => {
 .cinematic-overlay {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 24px 28px;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 20%, rgba(2, 8, 17, 0.22) 100%),
-    linear-gradient(180deg, rgba(2, 8, 17, 0.5), transparent 25%, transparent 76%, rgba(2, 8, 17, 0.48));
+}
+
+.overlay-top,
+.overlay-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.theater-badge,
+.legend,
+.hud-card,
+.status-drawer,
+.satellite-float-card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 16, 17, 0.7);
+  backdrop-filter: blur(16px);
+}
+
+.theater-badge,
+.legend {
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: #d0d6e0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8a8f98;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.leo { background: #2ecc71; }
+.dot.meo { background: #ff9f43; }
+.dot.geo { background: #ff6b6b; }
+.dot.ground { background: #f1c40f; }
+
+.overlay-bottom {
+  align-items: flex-end;
+}
+
+.hud-card {
+  min-width: 180px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.hud-label,
+.hud-card small {
+  display: block;
+  color: #62666d;
+}
+
+.hud-card strong {
+  display: block;
+  margin: 6px 0;
+  color: #f7f8f8;
+  font-size: 1.4rem;
+  font-weight: 600;
 }
 
 .overlay-top,
@@ -807,9 +872,9 @@ onBeforeUnmount(() => {
 .legend {
   padding: 10px 14px;
   border-radius: 999px;
-  color: #eef3f8;
+  color: #d0d6e0;
   font-size: 12px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .legend {
@@ -823,7 +888,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #d8e5f2;
+  color: #8a8f98;
 }
 
 .dot {
@@ -833,10 +898,10 @@ onBeforeUnmount(() => {
   display: inline-block;
 }
 
-.dot.leo { background: #00d2ff; box-shadow: 0 0 6px rgba(0,210,255,0.6); }
-.dot.geo { background: #ff7d7d; }
-.dot.ground { background: #7dcfff; }
-.dot.warn { background: #ffd04b; }
+.dot.leo { background: #2ecc71; }
+.dot.meo { background: #ff9f43; }
+.dot.geo { background: #ff6b6b; }
+.dot.ground { background: #f1c40f; }
 
 .overlay-bottom {
   align-items: flex-end;
@@ -845,7 +910,7 @@ onBeforeUnmount(() => {
 .hud-card {
   min-width: 180px;
   padding: 14px 16px;
-  border-radius: 20px;
+  border-radius: 8px;
   pointer-events: none;
 }
 
@@ -871,7 +936,7 @@ onBeforeUnmount(() => {
   width: 320px;
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 16px;
   overflow: hidden;
   pointer-events: auto;
@@ -888,23 +953,27 @@ onBeforeUnmount(() => {
 }
 
 .collapse-btn {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: #d0d6e0;
+}
+
+.collapse-btn:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #eaf3fb;
 }
 
 .status-drawer-head strong,
 .float-card-head strong,
 .status-chip strong,
 .float-item strong {
-  color: #f5f9fd;
+  color: #f7f8f8;
 }
 
 .status-drawer-head span,
 .float-card-head span,
 .status-chip span,
 .float-item label {
-  color: #9cb3c7;
+  color: #62666d;
 }
 
 .status-drawer-list {
@@ -921,7 +990,7 @@ onBeforeUnmount(() => {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   scrollbar-width: thin;
-  scrollbar-color: rgba(143, 220, 255, 0.45) transparent;
+  scrollbar-color: rgba(138, 143, 152, 0.25) transparent;
 }
 
 .status-drawer-list::-webkit-scrollbar {
@@ -934,7 +1003,7 @@ onBeforeUnmount(() => {
 
 .status-drawer-list::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(143, 220, 255, 0.34);
+  background: rgba(138, 143, 152, 0.15);
 }
 
 .status-chip {
@@ -945,19 +1014,16 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
   text-align: left;
   cursor: pointer;
 }
 
-.status-chip.normal { box-shadow: inset 0 0 0 1px rgba(0, 210, 255, 0.16); }
-.status-chip.warning { box-shadow: inset 0 0 0 1px rgba(255, 208, 75, 0.14); }
-.status-chip.danger { box-shadow: inset 0 0 0 1px rgba(255, 107, 107, 0.14); }
-.status-chip.offline { box-shadow: inset 0 0 0 1px rgba(123, 135, 148, 0.14); }
-.status-chip.warning { background: rgba(255, 208, 75, 0.08); }
-.status-chip.danger { background: rgba(255, 107, 107, 0.1); }
-.status-chip.offline { background: rgba(123, 135, 148, 0.1); }
+.status-chip.normal { box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.15); }
+.status-chip.warning { box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.14); background: rgba(245, 158, 11, 0.06); }
+.status-chip.danger { box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.14); background: rgba(239, 68, 68, 0.08); }
+.status-chip.offline { box-shadow: inset 0 0 0 1px rgba(138, 143, 152, 0.14); background: rgba(138, 143, 152, 0.06); }
 
 .status-chip-meta {
   display: flex;
@@ -979,26 +1045,26 @@ onBeforeUnmount(() => {
 
 .status-badge.normal,
 .detail-status.normal {
-  color: #00d2ff;
-  background: rgba(0, 210, 255, 0.15);
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
 }
 
 .status-badge.warning,
 .detail-status.warning {
-  color: #ffd04b;
-  background: rgba(255, 208, 75, 0.14);
+  color: #F59E0B;
+  background: rgba(245, 158, 11, 0.14);
 }
 
 .status-badge.danger,
 .detail-status.danger {
-  color: #ff8c8c;
-  background: rgba(255, 107, 107, 0.16);
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.16);
 }
 
 .status-badge.offline,
 .detail-status.offline {
-  color: #b6c2cf;
-  background: rgba(123, 135, 148, 0.18);
+  color: #8a8f98;
+  background: rgba(138, 143, 152, 0.18);
 }
 
 .satellite-float-card {
@@ -1007,7 +1073,7 @@ onBeforeUnmount(() => {
   bottom: 126px;
   z-index: 12;
   width: 340px;
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 16px;
   pointer-events: auto;
 }
@@ -1020,8 +1086,29 @@ onBeforeUnmount(() => {
 
 .float-item {
   padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.float-item label,
+.float-item strong {
+  display: block;
+}
+
+.float-item strong {
+  margin-top: 6px;
+}
+
+.float-item label {
+  color: #62666d;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.float-item strong {
+  color: #f7f8f8;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .float-item label,
@@ -1040,40 +1127,41 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(3, 9, 15, 0.78);
+  background: rgba(8, 9, 10, 0.85);
 }
 
 .placeholder-content {
   width: min(420px, calc(100% - 32px));
   padding: 28px;
-  border-radius: 28px;
+  border-radius: 8px;
   text-align: center;
-  background: rgba(9, 18, 30, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 16, 17, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .placeholder-icon {
   width: 64px;
   height: 64px;
   margin: 0 auto 16px;
-  border-radius: 20px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(125, 207, 255, 0.12);
-  color: #8edcff;
+  background: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
   font-size: 1.3rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .placeholder-title {
-  color: #f4f8fc;
-  font-size: 1.05rem;
+  color: #f7f8f8;
+  font-size: 1rem;
+  font-weight: 500;
   margin-bottom: 10px;
 }
 
 .placeholder-message {
-  color: #9cb3c7;
+  color: #62666d;
   line-height: 1.7;
 }
 
@@ -1094,9 +1182,10 @@ onBeforeUnmount(() => {
   right: 24px;
   z-index: 12;
   pointer-events: auto;
-  background: rgba(14, 25, 43, 0.85) !important;
+  background: rgba(255,255,255,0.02) !important;
   backdrop-filter: blur(16px);
-  border-color: rgba(64, 158, 255, 0.4) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+  color: #d0d6e0 !important;
 }
 
 .edit-drawer {
@@ -1108,10 +1197,10 @@ onBeforeUnmount(() => {
   width: 320px;
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(7, 14, 23, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 16, 17, 0.75);
   backdrop-filter: blur(16px);
   pointer-events: auto;
 }
@@ -1121,8 +1210,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
-  color: #f5f9fd;
-  font-size: 1.1rem;
+  color: #f7f8f8;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .edit-drawer-list {
@@ -1136,12 +1226,12 @@ onBeforeUnmount(() => {
   padding-right: 4px;
   pointer-events: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(143, 220, 255, 0.45) transparent;
+  scrollbar-color: rgba(138, 143, 152, 0.25) transparent;
 }
 
 .edit-drawer-list::-webkit-scrollbar { width: 8px; }
 .edit-drawer-list::-webkit-scrollbar-track { background: transparent; }
-.edit-drawer-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(143, 220, 255, 0.34); }
+.edit-drawer-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(138, 143, 152, 0.15); }
 
 .edit-list-item {
   display: flex;
@@ -1155,7 +1245,8 @@ onBeforeUnmount(() => {
 
 .edit-item-info strong {
   display: block;
-  color: #f5f9fd;
+  color: #d0d6e0;
+  font-weight: 500;
   margin-bottom: 4px;
 }
 
