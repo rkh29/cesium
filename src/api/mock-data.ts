@@ -1,4 +1,3 @@
-import type { AgentStatus, BlackboardState, SandboxFileResponse, TraceDetail } from './types'
 import type { Instance, InstanceResource, Link, LinkResource, PositionMap } from './types'
 
 const leoLatitudes = [-46, -22, 0, 22, 46]
@@ -192,53 +191,4 @@ export const mockPositions: PositionMap = (() => {
   return result
 })()
 
-export const mockAgentStatus: AgentStatus = {
-  coordinator: {
-    status: 'online',
-    model: 'Qwen2.5-72B',
-    provider: 'vllm',
-    active_tasks: 1
-  },
-  specialists: [
-    { name: '网络专家', status: 'online', pending_actions: 0 },
-    { name: '健康专家', status: 'online', pending_actions: 0 },
-    { name: '运维专家', status: 'online', pending_actions: 0 }
-  ],
-  edge_agents: mockInstances
-    .filter((item) => item.type === 'satellite')
-    .slice(0, 6)
-    .map((item) => ({
-      satellite_id: item.instance_id,
-      status: 'online',
-      last_heartbeat: '2026-03-21T10:30:00Z'
-    }))
-}
 
-export const mockTrace: TraceDetail = {
-  trace_id: 'tr-12345',
-  current_phase: 'execute',
-  plan: [
-    { task: '检查 GEO 骨干链路', assignee: '网络专家', status: 'completed' },
-    { task: '分析边界站日志', assignee: '运维专家', status: 'running' },
-    { task: '复核中心主控站策略', assignee: '协调器', status: 'pending' }
-  ],
-  final_review: null
-}
-
-export const mockBlackboard: BlackboardState = {
-  trace_id: 'tr-12345',
-  findings: {
-    network_status: '全网稳定',
-    leo_constellation: 'Walker Delta 55°: 15/3/f',
-    geo_backbone: '0° / 120° / 240°',
-    log_pointer: '/tmp/trace_tr-12345.csv'
-  },
-  updated_at: '2026-03-21T10:00:00Z'
-}
-
-export const mockSandboxFile: SandboxFileResponse = {
-  path: '/tmp/trace_tr-12345.csv',
-  mime_type: 'text/csv',
-  content:
-    'timestamp,node,event,severity\n2026-03-21T10:00:00Z,ground-mcs-001,route_sync,info\n2026-03-21T10:00:12Z,geo-001,heartbeat_ok,info'
-}
