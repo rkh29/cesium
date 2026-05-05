@@ -9,6 +9,7 @@
           <span><i class="dot geo"></i>高轨卫星</span>
           <span><i class="dot ground"></i>地面站</span>
           <span><i class="dot warn"></i>告警链路</span>
+          <span><i class="dot path"></i>通信路径</span>
         </div>
       </div>
 
@@ -125,6 +126,68 @@
       @click="isEditMode = true"
     >
       编辑卫星菜单
+    </el-button>
+
+    <!-- 通信路径控制面板 -->
+    <transition name="fade-panel">
+      <div
+        v-if="showOverlay && showPathPanel"
+        class="comm-path-panel"
+        @wheel.stop
+        @mousedown.stop
+        @touchmove.stop
+      >
+        <div class="comm-path-head">
+          <strong>通信传输链路</strong>
+          <el-button size="small" plain @click="showPathPanel = false">收起</el-button>
+        </div>
+        <div class="comm-path-row">
+          <label>源端</label>
+          <el-select v-model="pathSourceId" size="small" placeholder="选择地面站" style="width: 100%">
+            <el-option
+              v-for="g in groundStationOptions"
+              :key="g.id"
+              :label="g.name"
+              :value="g.id"
+            />
+          </el-select>
+        </div>
+        <div class="comm-path-row">
+          <label>目的端</label>
+          <el-select v-model="pathTargetId" size="small" placeholder="选择地面站" style="width: 100%">
+            <el-option
+              v-for="g in groundStationOptions"
+              :key="g.id"
+              :label="g.name"
+              :value="g.id"
+            />
+          </el-select>
+        </div>
+        <div class="comm-path-actions">
+          <el-button type="primary" size="small" :disabled="!canRoute" @click="computeAndShowPath">
+            自动寻路并高亮
+          </el-button>
+          <el-button size="small" @click="showDemoPath">演示</el-button>
+          <el-button size="small" plain :disabled="activePath.length === 0" @click="clearActivePath">
+            清除
+          </el-button>
+        </div>
+        <div v-if="pathHopsLabel" class="comm-path-info">
+          <span>路径: {{ pathHopsLabel }}</span>
+          <span>跳数: {{ Math.max(activePath.length - 1, 0) }}</span>
+        </div>
+        <div v-else-if="pathError" class="comm-path-error">{{ pathError }}</div>
+      </div>
+    </transition>
+
+    <el-button
+      v-if="showOverlay && !showPathPanel"
+      class="floating-path-btn"
+      type="success"
+      plain
+      @click="showPathPanel = true"
+    >
+      通信链路
     </el-button>
 
     <transition name="fade-panel">
@@ -246,6 +309,121 @@ const selectedOrbitMetrics = computed(() =>
 )
 const isEditMode = ref(false)
 const showEditDialog = ref(false)
+
+// ===== 通信传输路径 (业务路径) 高亮 =====
+const showPathPanel = ref(false)
+const pathSourceId = ref<string>('')
+const pathTargetId = ref<string>('')
+const activePath = ref<string[]>([]) // 节点 instance_id 序列：源 -> 中转(卫星/GEO) -> 目的
+const activePathLinkIds = ref<string[]>([]) // 路径上对应的 link.id 顺序集合
+const pathError = ref<string>('')
+
+const groundStationOptions = computed(() =>
+  instanceStore.instancesForDisplay.filter((item) =>
+    item.type.toLowerCase().includes('ground')
+  )
+)
+
+const canRoute = computed(
+  () => !!pathSourceId.value && !!pathTargetId.value && pathSourceId.value !== pathTargetId.value
+)
+
+const pathHopsLabel = computed(() => {
+  if (activePath.value.length === 0) return ''
+  return activePath.value
+    .map((id) => {
+      const inst = instanceStore.instancesForDisplay.find((i) => i.id === id)
+      if (inst) return inst.name
+      const sat = satelliteStore.satellites.find((s) => s.instanceId === id)
+      if (sat) return sat.name
+      return id
+    })
+    .join(' → ')
+})
+
+// 用启用的链路构造无向图，BFS 找最短跳数路径
+function findRoute(srcId: string, dstId: string): { nodes: string[]; linkIds: string[] } | null {
+  const adj = new Map<string, Array<{ to: string; linkId: string }>>()
+  linkStore.linksForDisplay.forEach((link) => {
+    if (!link.enabled) return
+    if (link.status === 'danger') return // 跳过故障链路
+    const [a, b] = link.endpoints
+    if (!adj.has(a)) adj.set(a, [])
+    if (!adj.has(b)) adj.set(b, [])
+    adj.get(a)!.push({ to: b, linkId: link.id })
+    adj.get(b)!.push({ to: a, linkId: link.id })
+  })
+
+  if (!adj.has(srcId) || !adj.has(dstId)) return null
+
+  const prev = new Map<string, { from: string; linkId: string }>()
+  const visited = new Set<string>([srcId])
+  const queue: string[] = [srcId]
+  while (queue.length) {
+    const cur = queue.shift()!
+    if (cur === dstId) break
+    const nb = adj.get(cur) || []
+    for (const { to, linkId } of nb) {
+      if (visited.has(to)) continue
+      visited.add(to)
+      prev.set(to, { from: cur, linkId })
+      queue.push(to)
+    }
+  }
+
+  if (!prev.has(dstId) && srcId !== dstId) return null
+
+  const nodes: string[] = []
+  const linkIds: string[] = []
+  let cur = dstId
+  while (cur !== srcId) {
+    const p = prev.get(cur)
+    if (!p) return null
+    nodes.unshift(cur)
+    linkIds.unshift(p.linkId)
+    cur = p.from
+  }
+  nodes.unshift(srcId)
+  return { nodes, linkIds }
+}
+
+function computeAndShowPath() {
+  if (!canRoute.value) return
+  pathError.value = ''
+  const route = findRoute(pathSourceId.value, pathTargetId.value)
+  if (!route) {
+    activePath.value = []
+    activePathLinkIds.value = []
+    pathError.value = '无法在当前可用链路中找到从源端到目的端的通路'
+    if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+    return
+  }
+  activePath.value = route.nodes
+  activePathLinkIds.value = route.linkIds
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
+
+function showDemoPath() {
+  // 演示：选择两个边界监测站作为源/目的；如不存在则取前两个地面站
+  const grounds = groundStationOptions.value
+  if (grounds.length < 2) {
+    pathError.value = '地面站不足，无法演示'
+    return
+  }
+  const src = grounds.find((g) => g.id === 'ground-boundary-west') || grounds[0]
+  const dst = grounds.find((g) => g.id === 'ground-boundary-east') || grounds[grounds.length - 1]
+  pathSourceId.value = src.id
+  pathTargetId.value = dst.id
+  computeAndShowPath()
+}
+
+function clearActivePath() {
+  activePath.value = []
+  activePathLinkIds.value = []
+  pathError.value = ''
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
+
 const editForm = ref({
   id: 0,
   name: '',
@@ -578,6 +756,9 @@ function buildScene(v: Cesium.Viewer) {
     })
   })
 
+  const pathLinkSet = new Set(activePathLinkIds.value)
+  const pathNodeSet = new Set(activePath.value)
+
   linkStore.linksForDisplay.forEach((link) => {
     const [startId, endId] = link.endpoints
     const startSatellite = satellites.find((item) => item.instanceId === startId)
@@ -585,8 +766,11 @@ function buildScene(v: Cesium.Viewer) {
     const startGround = positionMap[startId]
     const endGround = positionMap[endId]
 
-    const lineColor =
-      link.status === 'danger'
+    const isOnPath = pathLinkSet.has(link.id)
+
+    const lineColor = isOnPath
+      ? Cesium.Color.fromCssColorString('#00f5ff')
+      : link.status === 'danger'
         ? Cesium.Color.fromCssColorString('#ff6b6b')
         : link.status === 'warning'
           ? Cesium.Color.fromCssColorString('#ffd04b')
@@ -613,16 +797,76 @@ function buildScene(v: Cesium.Viewer) {
 
           return positions
         }, false),
-        width: link.status === 'danger' ? 3.8 : link.status === 'warning' ? 3 : 1.5,
-        material: new Cesium.PolylineGlowMaterialProperty({
-          glowPower: isAbnormalLink ? 0.32 : 0.15,
-          taperPower: 0.35,
-          color: lineColor.withAlpha(link.enabled ? (isAbnormalLink ? 0.95 : 0.68) : 0.55)
-        }),
+        width: isOnPath ? 8 : link.status === 'danger' ? 3.8 : link.status === 'warning' ? 3 : 1.5,
+        material: isOnPath
+          ? (new Cesium.PolylineGlowMaterialProperty({
+              glowPower: 0.55,
+              taperPower: 1.0,
+              color: lineColor.withAlpha(0.98)
+            }) as any)
+          : (new Cesium.PolylineGlowMaterialProperty({
+              glowPower: isAbnormalLink ? 0.32 : 0.15,
+              taperPower: 0.35,
+              color: lineColor.withAlpha(link.enabled ? (isAbnormalLink ? 0.95 : 0.68) : 0.55)
+            }) as any),
         arcType: Cesium.ArcType.NONE
       }
     })
   })
+
+  // 为路径上每个节点添加高亮 halo
+  if (pathNodeSet.size > 0) {
+    activePath.value.forEach((nodeId, idx) => {
+      const sat = satellites.find((s) => s.instanceId === nodeId)
+      const ground = positionMap[nodeId]
+      const isEndpoint = idx === 0 || idx === activePath.value.length - 1
+      const haloColor = isEndpoint
+        ? Cesium.Color.fromCssColorString('#00ffd1')
+        : Cesium.Color.fromCssColorString('#00f5ff')
+      if (sat) {
+        v.entities.add({
+          id: `path-halo-${nodeId}`,
+          position: new Cesium.CallbackPositionProperty(
+            () => getSatellitePosition(sat, v.clock.currentTime, startTime),
+            false
+          ),
+          point: {
+            pixelSize: 18,
+            color: haloColor.withAlpha(0.0),
+            outlineColor: haloColor.withAlpha(0.95),
+            outlineWidth: 3,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          },
+          label: {
+            text: `[第${idx + 1}跳] ${sat.name}`,
+            font: '600 12px "Microsoft YaHei", sans-serif',
+            fillColor: haloColor,
+            pixelOffset: new Cesium.Cartesian2(0, 18),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        })
+      } else if (ground) {
+        const cart = Cesium.Cartesian3.fromDegrees(ground.longitude, ground.latitude, ground.altitude || 30)
+        v.entities.add({
+          id: `path-halo-${nodeId}`,
+          position: cart,
+          ellipsoid: {
+            radii: new Cesium.Cartesian3(220000, 220000, 220000),
+            material: haloColor.withAlpha(0.18),
+            outline: true,
+            outlineColor: haloColor.withAlpha(0.9)
+          },
+          label: {
+            text: idx === 0 ? `源端: ${nodeId}` : `目的: ${nodeId}`,
+            font: '700 13px "Microsoft YaHei", sans-serif',
+            fillColor: haloColor,
+            pixelOffset: new Cesium.Cartesian2(0, -42),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        })
+      }
+    })
+  }
 }
 
 onMounted(() => {
@@ -902,6 +1146,8 @@ onBeforeUnmount(() => {
 .dot.meo { background: #ff9f43; }
 .dot.geo { background: #ff6b6b; }
 .dot.ground { background: #f1c40f; }
+.dot.warn { background: #ffd04b; box-shadow: 0 0 6px rgba(255,208,75,0.7); }
+.dot.path { background: #00f5ff; box-shadow: 0 0 8px rgba(0,245,255,0.85); }
 
 .overlay-bottom {
   align-items: flex-end;
@@ -919,6 +1165,76 @@ onBeforeUnmount(() => {
   display: block;
   color: #99b0c5;
 }
+
+/* 通信路径面板 */
+.comm-path-panel {
+  position: absolute;
+  left: 24px;
+  bottom: 140px;
+  z-index: 13;
+  width: 320px;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 245, 255, 0.25);
+  background: rgba(7, 14, 23, 0.85);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 24px rgba(0, 245, 255, 0.15);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.comm-path-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #00f5ff;
+  font-size: 14px;
+}
+.comm-path-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.comm-path-row label {
+  font-size: 12px;
+  color: #8a9aac;
+}
+.comm-path-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.comm-path-info {
+  font-size: 12px;
+  color: #00f5ff;
+  background: rgba(0, 245, 255, 0.08);
+  padding: 8px 10px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  word-break: break-all;
+}
+.comm-path-error {
+  font-size: 12px;
+  color: #ff8e8e;
+  background: rgba(255, 107, 107, 0.1);
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.floating-path-btn {
+  position: absolute !important;
+  left: 24px;
+  bottom: 100px;
+  z-index: 12;
+  pointer-events: auto;
+  background: rgba(0, 245, 255, 0.08) !important;
+  border-color: rgba(0, 245, 255, 0.45) !important;
+  color: #00f5ff !important;
+  backdrop-filter: blur(16px);
+}
+
 
 .hud-card strong {
   display: block;
