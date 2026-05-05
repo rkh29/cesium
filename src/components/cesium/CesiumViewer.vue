@@ -10,6 +10,7 @@
           <span><i class="dot ground"></i>地面站</span>
           <span><i class="dot warn"></i>告警链路</span>
           <span><i class="dot path"></i>通信路径</span>
+          <span><i class="dot uplink"></i>地面站链路</span>
         </div>
       </div>
 
@@ -172,6 +173,17 @@
             清除
           </el-button>
         </div>
+        <div class="comm-path-row uplink-toggle-row">
+          <el-switch
+            v-model="highlightUplinks"
+            size="small"
+            inline-prompt
+            active-text="高亮地面站↔卫星上下行"
+            inactive-text="不高亮地面站链路"
+            @change="rebuildScene"
+          />
+          <span class="uplink-hint">共 {{ uplinkLinkCount }} 条地面站上下行链路（按经纬度自动接入最近 LEO）</span>
+        </div>
         <div v-if="pathHopsLabel" class="comm-path-info">
           <span>路径: {{ pathHopsLabel }}</span>
           <span>跳数: {{ Math.max(activePath.length - 1, 0) }}</span>
@@ -317,6 +329,7 @@ const pathTargetId = ref<string>('')
 const activePath = ref<string[]>([]) // 节点 instance_id 序列：源 -> 中转(卫星/GEO) -> 目的
 const activePathLinkIds = ref<string[]>([]) // 路径上对应的 link.id 顺序集合
 const pathError = ref<string>('')
+const highlightUplinks = ref<boolean>(true) // 是否额外高亮所有"地面基站↔卫星"上下行链路
 
 const groundStationOptions = computed(() =>
   instanceStore.instancesForDisplay.filter((item) =>
@@ -327,6 +340,15 @@ const groundStationOptions = computed(() =>
 const canRoute = computed(
   () => !!pathSourceId.value && !!pathTargetId.value && pathSourceId.value !== pathTargetId.value
 )
+
+// 地面站↔卫星上下行链路条数（仅统计 ground-uplink 类型）
+const uplinkLinkCount = computed(
+  () => linkStore.linksForDisplay.filter((link) => link.type === 'ground-uplink').length
+)
+
+function rebuildScene() {
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
 
 const pathHopsLabel = computed(() => {
   if (activePath.value.length === 0) return ''
@@ -767,6 +789,8 @@ function buildScene(v: Cesium.Viewer) {
     const endGround = positionMap[endId]
 
     const isOnPath = pathLinkSet.has(link.id)
+    const isUplink = link.type === 'ground-uplink'
+    const isUplinkHighlighted = isUplink && highlightUplinks.value && !isOnPath
 
     const lineColor = isOnPath
       ? Cesium.Color.fromCssColorString('#00f5ff')
@@ -774,10 +798,13 @@ function buildScene(v: Cesium.Viewer) {
         ? Cesium.Color.fromCssColorString('#ff6b6b')
         : link.status === 'warning'
           ? Cesium.Color.fromCssColorString('#ffd04b')
-          : link.enabled
-            ? Cesium.Color.fromCssColorString('#7dcfff')
-            : Cesium.Color.fromCssColorString('#6b7480')
+          : isUplink
+            ? Cesium.Color.fromCssColorString('#ffb84d')
+            : link.enabled
+              ? Cesium.Color.fromCssColorString('#7dcfff')
+              : Cesium.Color.fromCssColorString('#6b7480')
     const isAbnormalLink = link.status === 'danger' || link.status === 'warning' || !link.enabled
+
 
     v.entities.add({
       id: `link-${link.id}`,
@@ -797,18 +824,33 @@ function buildScene(v: Cesium.Viewer) {
 
           return positions
         }, false),
-        width: isOnPath ? 8 : link.status === 'danger' ? 3.8 : link.status === 'warning' ? 3 : 1.5,
+        width: isOnPath
+          ? 8
+          : isUplinkHighlighted
+            ? 5
+            : link.status === 'danger'
+              ? 3.8
+              : link.status === 'warning'
+                ? 3
+                : 1.5,
         material: isOnPath
           ? (new Cesium.PolylineGlowMaterialProperty({
               glowPower: 0.55,
               taperPower: 1.0,
               color: lineColor.withAlpha(0.98)
             }) as any)
-          : (new Cesium.PolylineGlowMaterialProperty({
-              glowPower: isAbnormalLink ? 0.32 : 0.15,
-              taperPower: 0.35,
-              color: lineColor.withAlpha(link.enabled ? (isAbnormalLink ? 0.95 : 0.68) : 0.55)
-            }) as any),
+          : isUplinkHighlighted
+            ? (new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.4,
+                taperPower: 0.8,
+                color: lineColor.withAlpha(0.95)
+              }) as any)
+            : (new Cesium.PolylineGlowMaterialProperty({
+                glowPower: isAbnormalLink ? 0.32 : 0.15,
+                taperPower: 0.35,
+                color: lineColor.withAlpha(link.enabled ? (isAbnormalLink ? 0.95 : 0.68) : 0.55)
+              }) as any),
+
         arcType: Cesium.ArcType.NONE
       }
     })
@@ -1148,6 +1190,23 @@ onBeforeUnmount(() => {
 .dot.ground { background: #f1c40f; }
 .dot.warn { background: #ffd04b; box-shadow: 0 0 6px rgba(255,208,75,0.7); }
 .dot.path { background: #00f5ff; box-shadow: 0 0 8px rgba(0,245,255,0.85); }
+.dot.uplink { background: #ffb84d; box-shadow: 0 0 6px rgba(255,184,77,0.85); }
+
+.uplink-toggle-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 184, 77, 0.25);
+  margin-top: 2px;
+}
+.uplink-hint {
+  font-size: 11px;
+  color: #d0a06b;
+  line-height: 1.4;
+}
+
 
 .overlay-bottom {
   align-items: flex-end;
