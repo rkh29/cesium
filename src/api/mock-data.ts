@@ -117,8 +117,53 @@ function buildLinks() {
       })
     })
 
+  // 地面基站 ↔ 低轨卫星 上下行链路 (ground-uplink)
+  // 规则：每个地面站按当前经纬度与所有 LEO 卫星起始经纬度的球面距离，选最近的 2 颗 LEO 建立链路
+  const leoSatPositions: Array<{ id: string; lat: number; lon: number }> = []
+  for (let plane = 0; plane < 3; plane += 1) {
+    for (let index = 0; index < 5; index += 1) {
+      const serial = plane * 5 + index + 1
+      leoSatPositions.push({
+        id: `sat-${String(serial).padStart(3, '0')}`,
+        lat: leoLatitudes[index],
+        lon: leoPlaneLongitudes[plane] + index * 14
+      })
+    }
+  }
+
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const greatCircleDeg = (aLat: number, aLon: number, bLat: number, bLon: number) => {
+    const la1 = toRad(aLat)
+    const la2 = toRad(bLat)
+    const dLa = la2 - la1
+    const dLo = toRad(bLon - aLon)
+    const h = Math.sin(dLa / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLo / 2) ** 2
+    return 2 * Math.asin(Math.min(1, Math.sqrt(h)))
+  }
+
+  groundStations.forEach((station) => {
+    const ranked = leoSatPositions
+      .map((sat) => ({
+        id: sat.id,
+        d: greatCircleDeg(station.latitude, station.longitude, sat.lat, sat.lon)
+      }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 2)
+
+    ranked.forEach((sat) => {
+      result.push({
+        link_id: `link-${String(linkSerial++).padStart(3, '0')}`,
+        type: 'ground-uplink',
+        enable: true,
+        connect_instance: [station.id, sat.id],
+        node_index: 0
+      })
+    })
+  })
+
   return result
 }
+
 
 export const mockInstances: Instance[] = buildInstances()
 export const mockLinks: Link[] = buildLinks()
