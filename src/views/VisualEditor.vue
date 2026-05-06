@@ -1,6 +1,6 @@
 <template>
   <div class="visual-editor">
-    <SatelliteMapViewer :show-all-status="false" :show-float-card="false" class="cesium-bg" />
+    <CesiumViewer :show-overlay="false" :show-float-card="false" class="cesium-bg" />
     
     <!-- 浮动：打开全部卫星列表按钮 -->
     <el-button 
@@ -125,7 +125,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Operation } from '@element-plus/icons-vue'
-import SatelliteMapViewer from '../components/cesium/SatelliteMapViewer.vue'
+import CesiumViewer from '../components/cesium/CesiumViewer.vue'
 import { useSatelliteStore } from '../stores/satellite'
 
 const satelliteStore = useSatelliteStore()
@@ -291,20 +291,26 @@ onUnmounted(() => {
   top: 24px;
   left: 24px;
   z-index: 15;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #d0d6e0;
+}
+
+.toggle-btn:hover {
+  background: rgba(255,255,255,0.04);
+  color: #f7f8f8;
 }
 
 .editor-panel {
   position: absolute;
   display: flex;
   flex-direction: column;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 16, 17, 0.75);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
   z-index: 10;
-  color: var(--vscode-text);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  color: #f7f8f8;
 }
 
 .list-panel {
@@ -326,14 +332,14 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .panel-header h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  color: #f7f8f8;
 }
 
 .sat-list {
@@ -347,20 +353,20 @@ onUnmounted(() => {
   align-items: center;
   padding: 12px 16px;
   margin-bottom: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s;
 }
 
 .sat-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .sat-item.active {
-  border-color: var(--vscode-primary);
-  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(94, 106, 210, 0.3);
+  background: rgba(94, 106, 210, 0.08);
 }
 
 .sat-info {
@@ -371,7 +377,7 @@ onUnmounted(() => {
 
 .sat-name {
   font-weight: 500;
-  color: #e2e8f0;
+  color: #d0d6e0;
 }
 
 .sat-actions {
@@ -386,8 +392,9 @@ onUnmounted(() => {
 
 .edit-form h4 {
   margin: 0 0 20px 0;
-  color: #fff;
+  color: #f7f8f8;
   font-size: 15px;
+  font-weight: 500;
 }
 
 .form-actions {
@@ -415,21 +422,27 @@ onUnmounted(() => {
 }
 
 .float-card-head strong {
-  color: #f5f9fd;
+  color: #f7f8f8;
   display: block;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
   margin-bottom: 4px;
 }
 
 .float-card-head span {
-  color: #9cb3c7;
+  color: #62666d;
   font-size: 13px;
 }
 
 .collapse-btn {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: #d0d6e0;
+}
+
+.collapse-btn:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #eaf3fb;
+  color: #f7f8f8;
 }
 
 .float-card-grid {
@@ -450,14 +463,15 @@ onUnmounted(() => {
 }
 
 .float-item label {
-  color: #9cb3c7;
+  color: #62666d;
   margin-bottom: 6px;
   font-size: 13px;
 }
 
 .float-item strong {
-  color: #f5f9fd;
-  font-size: 15px;
+  color: #f7f8f8;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .detail-status {
@@ -470,10 +484,10 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.detail-status.normal { color: #8fe388; background: rgba(143, 227, 136, 0.12); }
-.detail-status.warning { color: #ffd04b; background: rgba(255, 208, 75, 0.14); }
-.detail-status.danger { color: #ff8c8c; background: rgba(255, 107, 107, 0.16); }
-.detail-status.offline { color: #b6c2cf; background: rgba(123, 135, 148, 0.18); }
+.detail-status.normal { color: #10b981; background: rgba(16, 185, 129, 0.12); }
+.detail-status.warning { color: #F59E0B; background: rgba(245, 158, 11, 0.14); }
+.detail-status.danger { color: #EF4444; background: rgba(239, 68, 68, 0.16); }
+.detail-status.offline { color: #8a8f98; background: rgba(138, 143, 152, 0.18); }
 
 .mt-4 {
   margin-top: 16px;
@@ -492,6 +506,6 @@ onUnmounted(() => {
 }
 
 :deep(.el-form-item__label) {
-  color: #cbd5e1 !important;
+  color: #8a8f98 !important;
 }
 </style>

@@ -1,13 +1,16 @@
 <template>
   <div id="cesium-container" ref="cesiumContainer">
-    <div class="cinematic-overlay">
+    <div v-if="showOverlay" class="cinematic-overlay">
       <div class="overlay-top">
         <div class="theater-badge">卫星群视图</div>
         <div class="legend">
           <span><i class="dot leo"></i>低轨卫星</span>
+          <span><i class="dot meo"></i>中轨卫星</span>
           <span><i class="dot geo"></i>高轨卫星</span>
           <span><i class="dot ground"></i>地面站</span>
           <span><i class="dot warn"></i>告警链路</span>
+          <span><i class="dot path"></i>通信路径</span>
+          <span><i class="dot uplink"></i>地面站链路</span>
         </div>
       </div>
 
@@ -117,13 +120,86 @@
     </transition>
 
     <el-button 
-      v-if="!isEditMode && !selectedSatelliteCard" 
+      v-if="showOverlay && !isEditMode && !selectedSatelliteCard" 
       class="floating-edit-btn" 
       type="primary" 
       plain
       @click="isEditMode = true"
     >
       编辑卫星菜单
+    </el-button>
+
+    <!-- 通信路径控制面板 -->
+    <transition name="fade-panel">
+      <div
+        v-if="showOverlay && showPathPanel"
+        class="comm-path-panel"
+        @wheel.stop
+        @mousedown.stop
+        @touchmove.stop
+      >
+        <div class="comm-path-head">
+          <strong>通信传输链路</strong>
+          <el-button size="small" plain @click="showPathPanel = false">收起</el-button>
+        </div>
+        <div class="comm-path-row">
+          <label>源端</label>
+          <el-select v-model="pathSourceId" size="small" placeholder="选择地面站" style="width: 100%">
+            <el-option
+              v-for="g in groundStationOptions"
+              :key="g.id"
+              :label="g.name"
+              :value="g.id"
+            />
+          </el-select>
+        </div>
+        <div class="comm-path-row">
+          <label>目的端</label>
+          <el-select v-model="pathTargetId" size="small" placeholder="选择地面站" style="width: 100%">
+            <el-option
+              v-for="g in groundStationOptions"
+              :key="g.id"
+              :label="g.name"
+              :value="g.id"
+            />
+          </el-select>
+        </div>
+        <div class="comm-path-actions">
+          <el-button type="primary" size="small" :disabled="!canRoute" @click="computeAndShowPath">
+            自动寻路并高亮
+          </el-button>
+          <el-button size="small" @click="showDemoPath">演示</el-button>
+          <el-button size="small" plain :disabled="activePath.length === 0" @click="clearActivePath">
+            清除
+          </el-button>
+        </div>
+        <div class="comm-path-row uplink-toggle-row">
+          <el-switch
+            v-model="highlightUplinks"
+            size="small"
+            inline-prompt
+            active-text="高亮地面站↔卫星上下行"
+            inactive-text="不高亮地面站链路"
+            @change="rebuildScene"
+          />
+          <span class="uplink-hint">共 {{ uplinkLinkCount }} 条地面站上下行链路（按经纬度自动接入最近 LEO）</span>
+        </div>
+        <div v-if="pathHopsLabel" class="comm-path-info">
+          <span>路径: {{ pathHopsLabel }}</span>
+          <span>跳数: {{ Math.max(activePath.length - 1, 0) }}</span>
+        </div>
+        <div v-else-if="pathError" class="comm-path-error">{{ pathError }}</div>
+      </div>
+    </transition>
+
+    <el-button
+      v-if="showOverlay && !showPathPanel"
+      class="floating-path-btn"
+      type="success"
+      plain
+      @click="showPathPanel = true"
+    >
+      通信链路
     </el-button>
 
     <transition name="fade-panel">
@@ -207,10 +283,12 @@ const props = withDefaults(
   defineProps<{
     showAllStatus?: boolean
     showFloatCard?: boolean
+    showOverlay?: boolean
   }>(),
   {
     showAllStatus: false,
-    showFloatCard: true
+    showFloatCard: true,
+    showOverlay: true
   }
 )
 
@@ -243,6 +321,131 @@ const selectedOrbitMetrics = computed(() =>
 )
 const isEditMode = ref(false)
 const showEditDialog = ref(false)
+
+// ===== 通信传输路径 (业务路径) 高亮 =====
+const showPathPanel = ref(false)
+const pathSourceId = ref<string>('')
+const pathTargetId = ref<string>('')
+const activePath = ref<string[]>([]) // 节点 instance_id 序列：源 -> 中转(卫星/GEO) -> 目的
+const activePathLinkIds = ref<string[]>([]) // 路径上对应的 link.id 顺序集合
+const pathError = ref<string>('')
+const highlightUplinks = ref<boolean>(true) // 是否额外高亮所有"地面基站↔卫星"上下行链路
+
+const groundStationOptions = computed(() =>
+  instanceStore.instancesForDisplay.filter((item) =>
+    item.type.toLowerCase().includes('ground')
+  )
+)
+
+const canRoute = computed(
+  () => !!pathSourceId.value && !!pathTargetId.value && pathSourceId.value !== pathTargetId.value
+)
+
+// 地面站↔卫星上下行链路条数（仅统计 ground-uplink 类型）
+const uplinkLinkCount = computed(
+  () => linkStore.linksForDisplay.filter((link) => link.type === 'ground-uplink').length
+)
+
+function rebuildScene() {
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
+
+const pathHopsLabel = computed(() => {
+  if (activePath.value.length === 0) return ''
+  return activePath.value
+    .map((id) => {
+      const inst = instanceStore.instancesForDisplay.find((i) => i.id === id)
+      if (inst) return inst.name
+      const sat = satelliteStore.satellites.find((s) => s.instanceId === id)
+      if (sat) return sat.name
+      return id
+    })
+    .join(' → ')
+})
+
+// 用启用的链路构造无向图，BFS 找最短跳数路径
+function findRoute(srcId: string, dstId: string): { nodes: string[]; linkIds: string[] } | null {
+  const adj = new Map<string, Array<{ to: string; linkId: string }>>()
+  linkStore.linksForDisplay.forEach((link) => {
+    if (!link.enabled) return
+    if (link.status === 'danger') return // 跳过故障链路
+    const [a, b] = link.endpoints
+    if (!adj.has(a)) adj.set(a, [])
+    if (!adj.has(b)) adj.set(b, [])
+    adj.get(a)!.push({ to: b, linkId: link.id })
+    adj.get(b)!.push({ to: a, linkId: link.id })
+  })
+
+  if (!adj.has(srcId) || !adj.has(dstId)) return null
+
+  const prev = new Map<string, { from: string; linkId: string }>()
+  const visited = new Set<string>([srcId])
+  const queue: string[] = [srcId]
+  while (queue.length) {
+    const cur = queue.shift()!
+    if (cur === dstId) break
+    const nb = adj.get(cur) || []
+    for (const { to, linkId } of nb) {
+      if (visited.has(to)) continue
+      visited.add(to)
+      prev.set(to, { from: cur, linkId })
+      queue.push(to)
+    }
+  }
+
+  if (!prev.has(dstId) && srcId !== dstId) return null
+
+  const nodes: string[] = []
+  const linkIds: string[] = []
+  let cur = dstId
+  while (cur !== srcId) {
+    const p = prev.get(cur)
+    if (!p) return null
+    nodes.unshift(cur)
+    linkIds.unshift(p.linkId)
+    cur = p.from
+  }
+  nodes.unshift(srcId)
+  return { nodes, linkIds }
+}
+
+function computeAndShowPath() {
+  if (!canRoute.value) return
+  pathError.value = ''
+  const route = findRoute(pathSourceId.value, pathTargetId.value)
+  if (!route) {
+    activePath.value = []
+    activePathLinkIds.value = []
+    pathError.value = '无法在当前可用链路中找到从源端到目的端的通路'
+    if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+    return
+  }
+  activePath.value = route.nodes
+  activePathLinkIds.value = route.linkIds
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
+
+function showDemoPath() {
+  // 演示：选择两个边界监测站作为源/目的；如不存在则取前两个地面站
+  const grounds = groundStationOptions.value
+  if (grounds.length < 2) {
+    pathError.value = '地面站不足，无法演示'
+    return
+  }
+  const src = grounds.find((g) => g.id === 'ground-boundary-west') || grounds[0]
+  const dst = grounds.find((g) => g.id === 'ground-boundary-east') || grounds[grounds.length - 1]
+  pathSourceId.value = src.id
+  pathTargetId.value = dst.id
+  computeAndShowPath()
+}
+
+function clearActivePath() {
+  activePath.value = []
+  activePathLinkIds.value = []
+  pathError.value = ''
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
+
 const editForm = ref({
   id: 0,
   name: '',
@@ -464,9 +667,16 @@ function buildScene(v: Cesium.Viewer) {
   )
 
   satellites.forEach((sat) => {
-    const isGeo = (sat.alt || 0) > 10000000
-    const color = statusColor(sat.status)
+    const isGeo = (sat.alt || 0) > 30000000
+    const isMeo = (sat.alt || 0) > 10000000 && (sat.alt || 0) <= 30000000
     const isAbnormal = sat.status === 'warning' || sat.status === 'danger' || sat.status === 'offline'
+    const color = isAbnormal
+      ? statusColor(sat.status)
+      : isGeo
+        ? Cesium.Color.fromCssColorString('#ff6b6b')
+        : isMeo
+          ? Cesium.Color.fromCssColorString('#ff9f43')
+          : Cesium.Color.fromCssColorString('#2ecc71')
 
     v.entities.add({
       id: String(sat.id),
@@ -476,8 +686,8 @@ function buildScene(v: Cesium.Viewer) {
         false
       ),
       point: {
-        pixelSize: isAbnormal ? (isGeo ? 12 : 9) : isGeo ? 5 : 3.5,
-        color: isAbnormal ? color : Cesium.Color.WHITE,
+        pixelSize: isAbnormal ? (isGeo ? 12 : isMeo ? 10 : 9) : isGeo ? 5 : isMeo ? 4 : 3.5,
+        color: color,
         outlineColor: isAbnormal ? color.withAlpha(0.95) : color.withAlpha(0.6),
         outlineWidth: isAbnormal ? 2 : 1,
         disableDepthTestDistance: Number.POSITIVE_INFINITY
@@ -556,7 +766,7 @@ function buildScene(v: Cesium.Viewer) {
         length: 180000,
         topRadius: 0,
         bottomRadius: 45000,
-        material: Cesium.Color.fromCssColorString('#7dcfff').withAlpha(0.55)
+        material: Cesium.Color.fromCssColorString('#f1c40f').withAlpha(0.7)
       },
       label: {
         text: ground.name,
@@ -568,6 +778,9 @@ function buildScene(v: Cesium.Viewer) {
     })
   })
 
+  const pathLinkSet = new Set(activePathLinkIds.value)
+  const pathNodeSet = new Set(activePath.value)
+
   linkStore.linksForDisplay.forEach((link) => {
     const [startId, endId] = link.endpoints
     const startSatellite = satellites.find((item) => item.instanceId === startId)
@@ -575,15 +788,23 @@ function buildScene(v: Cesium.Viewer) {
     const startGround = positionMap[startId]
     const endGround = positionMap[endId]
 
-    const lineColor =
-      link.status === 'danger'
+    const isOnPath = pathLinkSet.has(link.id)
+    const isUplink = link.type === 'ground-uplink'
+    const isUplinkHighlighted = isUplink && highlightUplinks.value && !isOnPath
+
+    const lineColor = isOnPath
+      ? Cesium.Color.fromCssColorString('#00f5ff')
+      : link.status === 'danger'
         ? Cesium.Color.fromCssColorString('#ff6b6b')
         : link.status === 'warning'
           ? Cesium.Color.fromCssColorString('#ffd04b')
-          : link.enabled
-            ? Cesium.Color.fromCssColorString('#7dcfff')
-            : Cesium.Color.fromCssColorString('#6b7480')
+          : isUplink
+            ? Cesium.Color.fromCssColorString('#ffb84d')
+            : link.enabled
+              ? Cesium.Color.fromCssColorString('#7dcfff')
+              : Cesium.Color.fromCssColorString('#6b7480')
     const isAbnormalLink = link.status === 'danger' || link.status === 'warning' || !link.enabled
+
 
     v.entities.add({
       id: `link-${link.id}`,
@@ -603,16 +824,91 @@ function buildScene(v: Cesium.Viewer) {
 
           return positions
         }, false),
-        width: link.status === 'danger' ? 3.8 : link.status === 'warning' ? 3 : 1.5,
-        material: new Cesium.PolylineGlowMaterialProperty({
-          glowPower: isAbnormalLink ? 0.32 : 0.15,
-          taperPower: 0.35,
-          color: lineColor.withAlpha(link.enabled ? (isAbnormalLink ? 0.95 : 0.68) : 0.55)
-        }),
+        width: isOnPath
+          ? 8
+          : isUplinkHighlighted
+            ? 5
+            : link.status === 'danger'
+              ? 3.8
+              : link.status === 'warning'
+                ? 3
+                : 1.5,
+        material: isOnPath
+          ? (new Cesium.PolylineGlowMaterialProperty({
+              glowPower: 0.55,
+              taperPower: 1.0,
+              color: lineColor.withAlpha(0.98)
+            }) as any)
+          : isUplinkHighlighted
+            ? (new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.4,
+                taperPower: 0.8,
+                color: lineColor.withAlpha(0.95)
+              }) as any)
+            : (new Cesium.PolylineGlowMaterialProperty({
+                glowPower: isAbnormalLink ? 0.32 : 0.15,
+                taperPower: 0.35,
+                color: lineColor.withAlpha(link.enabled ? (isAbnormalLink ? 0.95 : 0.68) : 0.55)
+              }) as any),
+
         arcType: Cesium.ArcType.NONE
       }
     })
   })
+
+  // 为路径上每个节点添加高亮 halo
+  if (pathNodeSet.size > 0) {
+    activePath.value.forEach((nodeId, idx) => {
+      const sat = satellites.find((s) => s.instanceId === nodeId)
+      const ground = positionMap[nodeId]
+      const isEndpoint = idx === 0 || idx === activePath.value.length - 1
+      const haloColor = isEndpoint
+        ? Cesium.Color.fromCssColorString('#00ffd1')
+        : Cesium.Color.fromCssColorString('#00f5ff')
+      if (sat) {
+        v.entities.add({
+          id: `path-halo-${nodeId}`,
+          position: new Cesium.CallbackPositionProperty(
+            () => getSatellitePosition(sat, v.clock.currentTime, startTime),
+            false
+          ),
+          point: {
+            pixelSize: 18,
+            color: haloColor.withAlpha(0.0),
+            outlineColor: haloColor.withAlpha(0.95),
+            outlineWidth: 3,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          },
+          label: {
+            text: `[第${idx + 1}跳] ${sat.name}`,
+            font: '600 12px "Microsoft YaHei", sans-serif',
+            fillColor: haloColor,
+            pixelOffset: new Cesium.Cartesian2(0, 18),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        })
+      } else if (ground) {
+        const cart = Cesium.Cartesian3.fromDegrees(ground.longitude, ground.latitude, ground.altitude || 30)
+        v.entities.add({
+          id: `path-halo-${nodeId}`,
+          position: cart,
+          ellipsoid: {
+            radii: new Cesium.Cartesian3(220000, 220000, 220000),
+            material: haloColor.withAlpha(0.18),
+            outline: true,
+            outlineColor: haloColor.withAlpha(0.9)
+          },
+          label: {
+            text: idx === 0 ? `源端: ${nodeId}` : `目的: ${nodeId}`,
+            font: '700 13px "Microsoft YaHei", sans-serif',
+            fillColor: haloColor,
+            pixelOffset: new Cesium.Cartesian2(0, -42),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        })
+      }
+    })
+  }
 }
 
 onMounted(() => {
@@ -649,26 +945,6 @@ onMounted(() => {
       v.scene.backgroundColor = Cesium.Color.fromCssColorString('#020811')
       v.scene.postProcessStages.fxaa.enabled = true
       v.shadowMap.enabled = false
-
-      if (!v.imageryLayers.length) {
-        try {
-          const highResMap = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
-            'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-            { enablePickFeatures: false }
-          )
-          v.imageryLayers.addImageryProvider(highResMap)
-        } catch (imageryError) {
-          // Keep the scene usable when the external imagery service is blocked or unavailable.
-          console.warn('[Cesium] Failed to load ArcGIS imagery, continuing without satellite basemap.', imageryError)
-        }
-      }
-
-      if (v.imageryLayers.length > 0) {
-        const imageryLayer = v.imageryLayers.get(0)
-        imageryLayer.brightness = 0.5
-        imageryLayer.gamma = 0.7
-        imageryLayer.saturation = 0.2
-      }
 
       const earthCenter = Cesium.Cartesian3.fromDegrees(108, 24, 0)
       v.camera.lookAt(
@@ -776,14 +1052,89 @@ onBeforeUnmount(() => {
 .cinematic-overlay {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 24px 28px;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 20%, rgba(2, 8, 17, 0.22) 100%),
-    linear-gradient(180deg, rgba(2, 8, 17, 0.5), transparent 25%, transparent 76%, rgba(2, 8, 17, 0.48));
+}
+
+.overlay-top,
+.overlay-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.theater-badge,
+.legend,
+.hud-card,
+.status-drawer,
+.satellite-float-card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 16, 17, 0.7);
+  backdrop-filter: blur(16px);
+}
+
+.theater-badge,
+.legend {
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: #d0d6e0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8a8f98;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.leo { background: #2ecc71; }
+.dot.meo { background: #ff9f43; }
+.dot.geo { background: #ff6b6b; }
+.dot.ground { background: #f1c40f; }
+
+.overlay-bottom {
+  align-items: flex-end;
+}
+
+.hud-card {
+  min-width: 180px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.hud-label,
+.hud-card small {
+  display: block;
+  color: #62666d;
+}
+
+.hud-card strong {
+  display: block;
+  margin: 6px 0;
+  color: #f7f8f8;
+  font-size: 1.4rem;
+  font-weight: 600;
 }
 
 .overlay-top,
@@ -807,9 +1158,9 @@ onBeforeUnmount(() => {
 .legend {
   padding: 10px 14px;
   border-radius: 999px;
-  color: #eef3f8;
+  color: #d0d6e0;
   font-size: 12px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .legend {
@@ -823,7 +1174,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #d8e5f2;
+  color: #8a8f98;
 }
 
 .dot {
@@ -833,10 +1184,29 @@ onBeforeUnmount(() => {
   display: inline-block;
 }
 
-.dot.leo { background: #00d2ff; box-shadow: 0 0 6px rgba(0,210,255,0.6); }
-.dot.geo { background: #ff7d7d; }
-.dot.ground { background: #7dcfff; }
-.dot.warn { background: #ffd04b; }
+.dot.leo { background: #2ecc71; }
+.dot.meo { background: #ff9f43; }
+.dot.geo { background: #ff6b6b; }
+.dot.ground { background: #f1c40f; }
+.dot.warn { background: #ffd04b; box-shadow: 0 0 6px rgba(255,208,75,0.7); }
+.dot.path { background: #00f5ff; box-shadow: 0 0 8px rgba(0,245,255,0.85); }
+.dot.uplink { background: #ffb84d; box-shadow: 0 0 6px rgba(255,184,77,0.85); }
+
+.uplink-toggle-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 184, 77, 0.25);
+  margin-top: 2px;
+}
+.uplink-hint {
+  font-size: 11px;
+  color: #d0a06b;
+  line-height: 1.4;
+}
+
 
 .overlay-bottom {
   align-items: flex-end;
@@ -845,7 +1215,7 @@ onBeforeUnmount(() => {
 .hud-card {
   min-width: 180px;
   padding: 14px 16px;
-  border-radius: 20px;
+  border-radius: 8px;
   pointer-events: none;
 }
 
@@ -854,6 +1224,76 @@ onBeforeUnmount(() => {
   display: block;
   color: #99b0c5;
 }
+
+/* 通信路径面板 */
+.comm-path-panel {
+  position: absolute;
+  left: 24px;
+  bottom: 140px;
+  z-index: 13;
+  width: 320px;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 245, 255, 0.25);
+  background: rgba(7, 14, 23, 0.85);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 24px rgba(0, 245, 255, 0.15);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.comm-path-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #00f5ff;
+  font-size: 14px;
+}
+.comm-path-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.comm-path-row label {
+  font-size: 12px;
+  color: #8a9aac;
+}
+.comm-path-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.comm-path-info {
+  font-size: 12px;
+  color: #00f5ff;
+  background: rgba(0, 245, 255, 0.08);
+  padding: 8px 10px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  word-break: break-all;
+}
+.comm-path-error {
+  font-size: 12px;
+  color: #ff8e8e;
+  background: rgba(255, 107, 107, 0.1);
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.floating-path-btn {
+  position: absolute !important;
+  left: 24px;
+  bottom: 100px;
+  z-index: 12;
+  pointer-events: auto;
+  background: rgba(0, 245, 255, 0.08) !important;
+  border-color: rgba(0, 245, 255, 0.45) !important;
+  color: #00f5ff !important;
+  backdrop-filter: blur(16px);
+}
+
 
 .hud-card strong {
   display: block;
@@ -871,7 +1311,7 @@ onBeforeUnmount(() => {
   width: 320px;
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 16px;
   overflow: hidden;
   pointer-events: auto;
@@ -888,23 +1328,27 @@ onBeforeUnmount(() => {
 }
 
 .collapse-btn {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: #d0d6e0;
+}
+
+.collapse-btn:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #eaf3fb;
 }
 
 .status-drawer-head strong,
 .float-card-head strong,
 .status-chip strong,
 .float-item strong {
-  color: #f5f9fd;
+  color: #f7f8f8;
 }
 
 .status-drawer-head span,
 .float-card-head span,
 .status-chip span,
 .float-item label {
-  color: #9cb3c7;
+  color: #62666d;
 }
 
 .status-drawer-list {
@@ -921,7 +1365,7 @@ onBeforeUnmount(() => {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   scrollbar-width: thin;
-  scrollbar-color: rgba(143, 220, 255, 0.45) transparent;
+  scrollbar-color: rgba(138, 143, 152, 0.25) transparent;
 }
 
 .status-drawer-list::-webkit-scrollbar {
@@ -934,7 +1378,7 @@ onBeforeUnmount(() => {
 
 .status-drawer-list::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(143, 220, 255, 0.34);
+  background: rgba(138, 143, 152, 0.15);
 }
 
 .status-chip {
@@ -945,19 +1389,16 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
   text-align: left;
   cursor: pointer;
 }
 
-.status-chip.normal { box-shadow: inset 0 0 0 1px rgba(0, 210, 255, 0.16); }
-.status-chip.warning { box-shadow: inset 0 0 0 1px rgba(255, 208, 75, 0.14); }
-.status-chip.danger { box-shadow: inset 0 0 0 1px rgba(255, 107, 107, 0.14); }
-.status-chip.offline { box-shadow: inset 0 0 0 1px rgba(123, 135, 148, 0.14); }
-.status-chip.warning { background: rgba(255, 208, 75, 0.08); }
-.status-chip.danger { background: rgba(255, 107, 107, 0.1); }
-.status-chip.offline { background: rgba(123, 135, 148, 0.1); }
+.status-chip.normal { box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.15); }
+.status-chip.warning { box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.14); background: rgba(245, 158, 11, 0.06); }
+.status-chip.danger { box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.14); background: rgba(239, 68, 68, 0.08); }
+.status-chip.offline { box-shadow: inset 0 0 0 1px rgba(138, 143, 152, 0.14); background: rgba(138, 143, 152, 0.06); }
 
 .status-chip-meta {
   display: flex;
@@ -979,26 +1420,26 @@ onBeforeUnmount(() => {
 
 .status-badge.normal,
 .detail-status.normal {
-  color: #00d2ff;
-  background: rgba(0, 210, 255, 0.15);
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
 }
 
 .status-badge.warning,
 .detail-status.warning {
-  color: #ffd04b;
-  background: rgba(255, 208, 75, 0.14);
+  color: #F59E0B;
+  background: rgba(245, 158, 11, 0.14);
 }
 
 .status-badge.danger,
 .detail-status.danger {
-  color: #ff8c8c;
-  background: rgba(255, 107, 107, 0.16);
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.16);
 }
 
 .status-badge.offline,
 .detail-status.offline {
-  color: #b6c2cf;
-  background: rgba(123, 135, 148, 0.18);
+  color: #8a8f98;
+  background: rgba(138, 143, 152, 0.18);
 }
 
 .satellite-float-card {
@@ -1007,7 +1448,7 @@ onBeforeUnmount(() => {
   bottom: 126px;
   z-index: 12;
   width: 340px;
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 16px;
   pointer-events: auto;
 }
@@ -1020,8 +1461,29 @@ onBeforeUnmount(() => {
 
 .float-item {
   padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.float-item label,
+.float-item strong {
+  display: block;
+}
+
+.float-item strong {
+  margin-top: 6px;
+}
+
+.float-item label {
+  color: #62666d;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.float-item strong {
+  color: #f7f8f8;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .float-item label,
@@ -1040,40 +1502,41 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(3, 9, 15, 0.78);
+  background: rgba(8, 9, 10, 0.85);
 }
 
 .placeholder-content {
   width: min(420px, calc(100% - 32px));
   padding: 28px;
-  border-radius: 28px;
+  border-radius: 8px;
   text-align: center;
-  background: rgba(9, 18, 30, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 16, 17, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .placeholder-icon {
   width: 64px;
   height: 64px;
   margin: 0 auto 16px;
-  border-radius: 20px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(125, 207, 255, 0.12);
-  color: #8edcff;
+  background: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
   font-size: 1.3rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .placeholder-title {
-  color: #f4f8fc;
-  font-size: 1.05rem;
+  color: #f7f8f8;
+  font-size: 1rem;
+  font-weight: 500;
   margin-bottom: 10px;
 }
 
 .placeholder-message {
-  color: #9cb3c7;
+  color: #62666d;
   line-height: 1.7;
 }
 
@@ -1094,9 +1557,10 @@ onBeforeUnmount(() => {
   right: 24px;
   z-index: 12;
   pointer-events: auto;
-  background: rgba(14, 25, 43, 0.85) !important;
+  background: rgba(255,255,255,0.02) !important;
   backdrop-filter: blur(16px);
-  border-color: rgba(64, 158, 255, 0.4) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+  color: #d0d6e0 !important;
 }
 
 .edit-drawer {
@@ -1108,10 +1572,10 @@ onBeforeUnmount(() => {
   width: 320px;
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(7, 14, 23, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 16, 17, 0.75);
   backdrop-filter: blur(16px);
   pointer-events: auto;
 }
@@ -1121,8 +1585,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
-  color: #f5f9fd;
-  font-size: 1.1rem;
+  color: #f7f8f8;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .edit-drawer-list {
@@ -1136,12 +1601,12 @@ onBeforeUnmount(() => {
   padding-right: 4px;
   pointer-events: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(143, 220, 255, 0.45) transparent;
+  scrollbar-color: rgba(138, 143, 152, 0.25) transparent;
 }
 
 .edit-drawer-list::-webkit-scrollbar { width: 8px; }
 .edit-drawer-list::-webkit-scrollbar-track { background: transparent; }
-.edit-drawer-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(143, 220, 255, 0.34); }
+.edit-drawer-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(138, 143, 152, 0.15); }
 
 .edit-list-item {
   display: flex;
@@ -1155,7 +1620,8 @@ onBeforeUnmount(() => {
 
 .edit-item-info strong {
   display: block;
-  color: #f5f9fd;
+  color: #d0d6e0;
+  font-weight: 500;
   margin-bottom: 4px;
 }
 

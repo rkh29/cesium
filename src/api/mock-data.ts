@@ -1,4 +1,3 @@
-import type { AgentStatus, BlackboardState, SandboxFileResponse, TraceDetail } from './types'
 import type { Instance, InstanceResource, Link, LinkResource, PositionMap } from './types'
 
 const leoLatitudes = [-46, -22, 0, 22, 46]
@@ -118,8 +117,53 @@ function buildLinks() {
       })
     })
 
+  // 地面基站 ↔ 低轨卫星 上下行链路 (ground-uplink)
+  // 规则：每个地面站按当前经纬度与所有 LEO 卫星起始经纬度的球面距离，选最近的 2 颗 LEO 建立链路
+  const leoSatPositions: Array<{ id: string; lat: number; lon: number }> = []
+  for (let plane = 0; plane < 3; plane += 1) {
+    for (let index = 0; index < 5; index += 1) {
+      const serial = plane * 5 + index + 1
+      leoSatPositions.push({
+        id: `sat-${String(serial).padStart(3, '0')}`,
+        lat: leoLatitudes[index],
+        lon: leoPlaneLongitudes[plane] + index * 14
+      })
+    }
+  }
+
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const greatCircleDeg = (aLat: number, aLon: number, bLat: number, bLon: number) => {
+    const la1 = toRad(aLat)
+    const la2 = toRad(bLat)
+    const dLa = la2 - la1
+    const dLo = toRad(bLon - aLon)
+    const h = Math.sin(dLa / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLo / 2) ** 2
+    return 2 * Math.asin(Math.min(1, Math.sqrt(h)))
+  }
+
+  groundStations.forEach((station) => {
+    const ranked = leoSatPositions
+      .map((sat) => ({
+        id: sat.id,
+        d: greatCircleDeg(station.latitude, station.longitude, sat.lat, sat.lon)
+      }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 2)
+
+    ranked.forEach((sat) => {
+      result.push({
+        link_id: `link-${String(linkSerial++).padStart(3, '0')}`,
+        type: 'ground-uplink',
+        enable: true,
+        connect_instance: [station.id, sat.id],
+        node_index: 0
+      })
+    })
+  })
+
   return result
 }
+
 
 export const mockInstances: Instance[] = buildInstances()
 export const mockLinks: Link[] = buildLinks()
@@ -192,53 +236,4 @@ export const mockPositions: PositionMap = (() => {
   return result
 })()
 
-export const mockAgentStatus: AgentStatus = {
-  coordinator: {
-    status: 'online',
-    model: 'Qwen2.5-72B',
-    provider: 'vllm',
-    active_tasks: 1
-  },
-  specialists: [
-    { name: '网络专家', status: 'online', pending_actions: 0 },
-    { name: '健康专家', status: 'online', pending_actions: 0 },
-    { name: '运维专家', status: 'online', pending_actions: 0 }
-  ],
-  edge_agents: mockInstances
-    .filter((item) => item.type === 'satellite')
-    .slice(0, 6)
-    .map((item) => ({
-      satellite_id: item.instance_id,
-      status: 'online',
-      last_heartbeat: '2026-03-21T10:30:00Z'
-    }))
-}
 
-export const mockTrace: TraceDetail = {
-  trace_id: 'tr-12345',
-  current_phase: 'execute',
-  plan: [
-    { task: '检查 GEO 骨干链路', assignee: '网络专家', status: 'completed' },
-    { task: '分析边界站日志', assignee: '运维专家', status: 'running' },
-    { task: '复核中心主控站策略', assignee: '协调器', status: 'pending' }
-  ],
-  final_review: null
-}
-
-export const mockBlackboard: BlackboardState = {
-  trace_id: 'tr-12345',
-  findings: {
-    network_status: '全网稳定',
-    leo_constellation: 'Walker Delta 55°: 15/3/f',
-    geo_backbone: '0° / 120° / 240°',
-    log_pointer: '/tmp/trace_tr-12345.csv'
-  },
-  updated_at: '2026-03-21T10:00:00Z'
-}
-
-export const mockSandboxFile: SandboxFileResponse = {
-  path: '/tmp/trace_tr-12345.csv',
-  mime_type: 'text/csv',
-  content:
-    'timestamp,node,event,severity\n2026-03-21T10:00:00Z,ground-mcs-001,route_sync,info\n2026-03-21T10:00:12Z,geo-001,heartbeat_ok,info'
-}

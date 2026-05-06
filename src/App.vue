@@ -2,25 +2,17 @@
 import { computed, ref, onMounted } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import {
-  ChatLineRound,
-  Close,
-  Connection,
-  Cpu,
-  Document,
   Fold,
   Grid,
   Link,
   Monitor,
-  Notification,
   Odometer,
   Operation,
   Position,
   Setting,
   User
 } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
 import { useAuthStore } from './stores/auth'
-import { agentApi } from './api'
 import logoUrl from './assets/logo.svg'
 
 interface NavChild {
@@ -36,29 +28,14 @@ interface NavGroup {
   children: NavChild[]
 }
 
-interface HelperMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
 const collapsed = ref(false)
-const agentDrawerVisible = ref(false)
-const isDark = ref(false)
+const isDark = ref(true)
 const loginVisible = ref(false)
 const loginForm = ref({ username: 'admin', password: 'admin' })
-const helperInput = ref('')
-const helperSending = ref(false)
-const helperMessages = ref<HelperMessage[]>([
-  {
-    role: 'assistant',
-    content:
-      '您好，我是 SpaceMAN 智能协作助手。已接入全网运行监控与诊断系统，您可以向我下达运维指令，例如“分析当前全网异常节点”、“排查 LEO 链路中断原因”或“查看大模型调度负载”。'
-  }
-])
 
 const groups: NavGroup[] = [
   {
@@ -66,7 +43,7 @@ const groups: NavGroup[] = [
     label: '总览',
     icon: Monitor,
     children: [
-      { path: '/', label: '卫星群仿真', icon: Odometer },
+      { path: '/', label: '仪表盘', icon: Odometer },
       { path: '/earth', label: '卫星群视图', icon: Position },
       { path: '/editor', label: '卫星可视编辑', icon: Operation }
     ]
@@ -79,26 +56,6 @@ const groups: NavGroup[] = [
       { path: '/instances', label: '节点实例', icon: Grid },
       { path: '/links', label: '链路拓扑', icon: Link }
     ]
-  },
-  {
-    id: 'agent',
-    label: '智能协作',
-    icon: Connection,
-    children: [
-      { path: '/agent', label: '协调控制台', icon: ChatLineRound },
-      { path: '/dag-pipeline', label: '执行流图', icon: Connection },
-      { path: '/blackboard', label: '黑板审计', icon: Document }
-    ]
-  },
-  {
-    id: 'ops',
-    label: '运行控制',
-    icon: Operation,
-    children: [
-      { path: '/faults', label: '故障注入', icon: Notification },
-      { path: '/security', label: '审批审计', icon: Document },
-      { path: '/llm', label: 'LLM 配置', icon: Cpu }
-    ]
   }
 ]
 
@@ -107,11 +64,13 @@ onMounted(() => {
   if (!authStore.isAuthenticated) {
     loginVisible.value = true
   }
-
   const savedTheme = localStorage.getItem('theme')
-  if (savedTheme === 'dark') {
+  if (savedTheme === 'dark' || savedTheme === null) {
     isDark.value = true
     document.documentElement.classList.add('dark')
+  } else {
+    isDark.value = false
+    document.documentElement.classList.remove('dark')
   }
 })
 
@@ -151,52 +110,12 @@ function isActive(path: string | undefined) {
   return path && route.path === path
 }
 
-async function sendHelper() {
-  const question = helperInput.value.trim()
-  if (!question || helperSending.value) return
-
-  helperMessages.value.push({ role: 'user', content: question })
-  helperInput.value = ''
-  helperSending.value = true
-
-  try {
-    const response = await agentApi.chat({
-      agent_type: 'coordinator',
-      message: question,
-      history: helperMessages.value
-        .slice(-8)
-        .map((item) => ({ role: item.role, content: item.content }))
-    })
-
-    const extras = [
-      response.response,
-      response.suggestions?.length ? `建议：${response.suggestions.join('；')}` : '',
-      response.pending_approvals?.length ? `待审批：${response.pending_approvals.length} 项` : ''
-    ]
-      .filter(Boolean)
-      .join('\n\n')
-
-    helperMessages.value.push({
-      role: 'assistant',
-      content: extras || '已收到，但没有返回可展示内容。'
-    })
-  } catch (error: any) {
-    ElMessage.error(error?.message || '助手请求失败')
-    helperMessages.value.push({
-      role: 'assistant',
-      content: '当前助手请求失败。你可以先进入“协调控制台”页面直接发起任务。'
-    })
-  } finally {
-    helperSending.value = false
-  }
-}
-
 const currentTitle = computed(() => {
   for (const group of groups) {
     const match = group.children.find((child) => child.path === route.path)
     if (match) return match.label
   }
-  return '卫星群仿真'
+  return '仪表盘'
 })
 </script>
 
@@ -205,7 +124,7 @@ const currentTitle = computed(() => {
     <aside class="sidebar" :class="{ collapsed }">
       <div class="sidebar-header">
         <img :src="logoUrl" alt="logo" class="logo" />
-        <span v-if="!collapsed" class="title">星网智控台</span>
+        <span v-if="!collapsed" class="title">天马星通控制台</span>
         <el-icon class="collapse-btn" @click="collapsed = !collapsed">
           <Fold />
         </el-icon>
@@ -229,7 +148,11 @@ const currentTitle = computed(() => {
       </div>
 
       <div class="sidebar-footer">
-        <div class="menu-item" :title="isDark ? '切换浅色模式' : '切换深色模式'" @click="toggleTheme">
+        <div
+          class="menu-item"
+          :title="isDark ? '切换为浅色模式' : '切换为深色模式'"
+          @click="toggleTheme"
+        >
           <el-icon><Setting /></el-icon>
           <span v-if="!collapsed">{{ isDark ? '浅色模式' : '深色模式' }}</span>
         </div>
@@ -251,48 +174,11 @@ const currentTitle = computed(() => {
         <div class="breadcrumbs">
           <span class="view-title">{{ currentTitle }}</span>
         </div>
-        <div class="actions">
-          <el-button type="primary" plain size="small" @click="agentDrawerVisible = true">
-            <el-icon><ChatLineRound /></el-icon>
-            <span class="ml-1">智能助手</span>
-          </el-button>
-        </div>
       </header>
       <div class="editor-content">
         <RouterView />
       </div>
     </main>
-
-    <aside class="agent-panel" :class="{ 'is-open': agentDrawerVisible }">
-      <div class="agent-header">
-        <span class="agent-title">智能协作助手</span>
-        <el-icon class="agent-close" @click="agentDrawerVisible = false"><Close /></el-icon>
-      </div>
-      <div class="drawer-chat">
-        <div class="chat-messages">
-          <div
-            v-for="(msg, index) in helperMessages"
-            :key="index"
-            class="msg-card"
-            :class="msg.role === 'user' ? 'user-msg' : 'bot-msg'"
-          >
-            <div class="msg-role">{{ msg.role === 'user' ? '你' : '助手' }}</div>
-            <div class="msg-content">{{ msg.content }}</div>
-          </div>
-        </div>
-        <div class="chat-input-area">
-          <el-input
-            v-model="helperInput"
-            placeholder="输入运维问题..."
-            :disabled="helperSending"
-            @keyup.enter="sendHelper"
-          />
-          <el-button type="primary" class="mt-2 w-full" :loading="helperSending" @click="sendHelper">
-            发送
-          </el-button>
-        </div>
-      </div>
-    </aside>
 
     <el-dialog
       v-model="loginVisible"
@@ -326,47 +212,48 @@ const currentTitle = computed(() => {
 
 <style>
 :root {
-  --vscode-bg: #f8fafc;
+  --vscode-bg: #f7f8f8;
   --vscode-sidebar-bg: #ffffff;
-  --vscode-border: #e2e8f0;
-  --vscode-text: #1e293b;
-  --vscode-text-muted: #64748b;
-  --vscode-hover: #f1f5f9;
-  --vscode-active: #e2e8f0;
-  --vscode-primary: #3b82f6;
-  --vscode-primary-text: #ffffff;
+  --vscode-border: #e6e6e6;
+  --vscode-text: #1d2129;
+  --vscode-text-muted: #5a5f68;
+  --vscode-hover: rgba(0, 0, 0, 0.03);
+  --vscode-active: rgba(0, 0, 0, 0.06);
+  --vscode-primary: #5e6ad2;
+  --vscode-primary-hover: #7170ff;
   --vscode-shadow: rgba(0, 0, 0, 0.04);
   --vscode-header-bg: #ffffff;
-  --el-color-primary: var(--vscode-primary);
-  --el-bg-color: var(--vscode-bg);
-  --el-bg-color-overlay: var(--vscode-sidebar-bg);
-  --el-text-color-primary: var(--vscode-text);
-  --el-text-color-regular: var(--vscode-text-muted);
-  --el-border-color: var(--vscode-border);
-  --el-border-color-light: var(--vscode-border);
-  --el-border-color-lighter: var(--vscode-hover);
-  --el-border-radius-base: 8px;
+  --el-color-primary: #5e6ad2;
+  --el-bg-color: #f7f8f8;
+  --el-bg-color-overlay: #ffffff;
+  --el-text-color-primary: #1d2129;
+  --el-text-color-regular: #5a5f68;
+  --el-border-color: #e2e4e7;
+  --el-border-color-light: #e2e4e7;
+  --el-border-color-lighter: #f0f0f0;
+  --el-border-radius-base: 6px;
 }
 
 html.dark {
-  --vscode-bg: #0f172a;
-  --vscode-sidebar-bg: #1e293b;
-  --vscode-border: rgba(255, 255, 255, 0.08);
-  --vscode-text: #f8fafc;
-  --vscode-text-muted: #94a3b8;
-  --vscode-hover: rgba(255, 255, 255, 0.06);
-  --vscode-active: rgba(255, 255, 255, 0.1);
-  --vscode-primary: #38bdf8;
-  --vscode-primary-text: #0f172a;
+  --vscode-bg: #08090a;
+  --vscode-sidebar-bg: #0f1011;
+  --vscode-border: rgba(255, 255, 255, 0.06);
+  --vscode-text: #f7f8f8;
+  --vscode-text-muted: #8a8f98;
+  --vscode-hover: rgba(255, 255, 255, 0.04);
+  --vscode-active: rgba(255, 255, 255, 0.06);
+  --vscode-primary: #5e6ad2;
+  --vscode-primary-hover: #828fff;
   --vscode-shadow: rgba(0, 0, 0, 0.4);
-  --vscode-header-bg: #1e293b;
-  --el-bg-color: var(--vscode-bg);
-  --el-bg-color-overlay: var(--vscode-sidebar-bg);
-  --el-text-color-primary: var(--vscode-text);
-  --el-text-color-regular: var(--vscode-text-muted);
-  --el-border-color: var(--vscode-border);
-  --el-border-color-light: var(--vscode-border);
-  --el-border-color-lighter: var(--vscode-hover);
+  --vscode-header-bg: #0f1011;
+  --el-color-primary: #5e6ad2;
+  --el-bg-color: #08090a;
+  --el-bg-color-overlay: #191a1b;
+  --el-text-color-primary: #f7f8f8;
+  --el-text-color-regular: #d0d6e0;
+  --el-border-color: rgba(255, 255, 255, 0.06);
+  --el-border-color-light: rgba(255, 255, 255, 0.08);
+  --el-border-color-lighter: rgba(255, 255, 255, 0.04);
 }
 
 html, body, #app {
@@ -374,7 +261,216 @@ html, body, #app {
   padding: 0;
   width: 100%;
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto, sans-serif;
+  background-color: var(--vscode-bg);
+  color: var(--vscode-text);
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.vscode-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--vscode-bg);
+  color: var(--vscode-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: var(--vscode-sidebar-bg);
+  border-right: 1px solid var(--vscode-border);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, border-color 0.3s ease;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+  width: 64px;
+}
+
+.sidebar-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--vscode-border);
+  transition: border-color 0.3s ease;
+}
+
+.sidebar.collapsed .sidebar-header {
+  padding: 0;
+  justify-content: center;
+}
+
+.logo {
+  width: 28px;
+  height: 28px;
+  margin-right: 12px;
+}
+
+.sidebar.collapsed .logo {
+  margin-right: 0;
+  display: none;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.165px;
+}
+
+.collapse-btn {
+  cursor: pointer;
+  color: var(--vscode-text-muted);
+  font-size: 18px;
+  transition: color 0.2s;
+}
+
+.collapse-btn:hover {
+  color: var(--vscode-text);
+}
+
+.sidebar-menu {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 0;
+}
+
+.menu-group {
+  margin-bottom: 20px;
+}
+
+.group-title {
+  padding: 0 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--vscode-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  cursor: pointer;
+  color: var(--vscode-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  border-left: 3px solid transparent;
+}
+
+.sidebar.collapsed .menu-item {
+  justify-content: center;
+  padding: 14px 0;
+  border-left: none;
+}
+
+.menu-item:hover {
+  background-color: var(--vscode-hover);
+  color: var(--vscode-text);
+}
+
+.menu-item.active {
+  background-color: var(--vscode-active);
+  color: var(--vscode-primary);
+  border-left-color: var(--vscode-primary);
+}
+
+.sidebar.collapsed .menu-item.active {
+  border-left: none;
+}
+
+.menu-item .el-icon {
+  font-size: 18px;
+  margin-right: 12px;
+}
+
+.sidebar.collapsed .menu-item .el-icon {
+  margin-right: 0;
+  font-size: 22px;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--vscode-border);
+  padding: 12px 0;
+  transition: border-color 0.3s ease;
+}
+
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.editor-header {
+  height: 56px;
+  background-color: var(--vscode-header-bg);
+  border-bottom: 1px solid var(--vscode-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.breadcrumbs .view-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--vscode-text);
+}
+
+.editor-content {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background-color: var(--vscode-bg);
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.login-dialog .el-dialog {
+  background-color: var(--vscode-sidebar-bg);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px var(--vscode-shadow);
+}
+
+.login-dialog .el-form-item__label {
+  color: var(--vscode-text);
+}
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto, sans-serif;
   background-color: var(--vscode-bg);
   color: var(--vscode-text);
   overflow: hidden;
@@ -561,106 +657,6 @@ html, body, #app {
   position: relative;
   background-color: var(--vscode-bg);
   transition: background-color 0.3s ease;
-}
-
-.agent-panel {
-  width: 0;
-  background-color: var(--vscode-sidebar-bg);
-  border-left: 1px solid transparent;
-  display: flex;
-  flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease, background-color 0.3s ease;
-  overflow: hidden;
-  flex-shrink: 0;
-  box-shadow: -4px 0 16px var(--vscode-shadow);
-}
-
-.agent-panel.is-open {
-  width: 360px;
-  border-left-color: var(--vscode-border);
-}
-
-.agent-header {
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--vscode-border);
-  flex-shrink: 0;
-  min-width: 360px;
-}
-
-.agent-title {
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.agent-close {
-  cursor: pointer;
-  font-size: 20px;
-  color: var(--vscode-text-muted);
-  transition: color 0.2s;
-}
-
-.agent-close:hover {
-  color: var(--vscode-primary);
-}
-
-.drawer-chat {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-width: 360px;
-}
-
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-}
-
-.msg-card {
-  margin-bottom: 20px;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.msg-role {
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: var(--vscode-primary);
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.user-msg .msg-role {
-  color: var(--vscode-text-muted);
-}
-
-.msg-content {
-  background: var(--vscode-bg);
-  border: 1px solid var(--vscode-border);
-  padding: 12px 16px;
-  border-radius: 8px;
-  white-space: pre-wrap;
-  box-shadow: 0 2px 8px var(--vscode-shadow);
-}
-
-.chat-input-area {
-  border-top: 1px solid var(--vscode-border);
-  padding: 20px;
-  background: var(--vscode-sidebar-bg);
-  flex-shrink: 0;
-}
-
-.ml-1 {
-  margin-left: 4px;
-}
-
-.mt-2 {
-  margin-top: 8px;
 }
 
 .mt-4 {

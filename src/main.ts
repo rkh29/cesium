@@ -1,5 +1,8 @@
+import * as Cesium from 'cesium'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+
+Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ION_TOKEN || ''
 import App from './App.vue'
 import router from './router'
 import ElementPlus from 'element-plus'
