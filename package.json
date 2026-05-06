@@ -1,5 +1,5 @@
 {
-  "name": "satellite-anomaly-monitor",
+  "name": "tmxt-communication",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -40,8 +40,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.satops.desktop",
-    "productName": "卫星异常检测系统",
+    "appId": "com.tmxt.desktop",
+    "productName": "天马星通通信控制平台",
     "directories": {
       "output": "dist-electron"
     },
@@ -63,7 +63,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "shortcutName": "卫星异常检测系统",
+      "shortcutName": "天马星通通信控制平台",
       "createDesktopShortcut": true
     }
   }

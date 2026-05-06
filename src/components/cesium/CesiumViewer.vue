@@ -114,22 +114,32 @@
           </strong>
         </div>
         <div style="margin-top: 12px; display: flex; gap: 8px;">
-           <el-button type="primary" size="small" style="flex: 1;" @click="openEditDialog(selectedSatelliteCard)">编辑此卫星</el-button>
+           <el-button type="primary" size="small" style="flex: 1;" @click="openEditSatDialog(selectedSatelliteCard)">编辑此卫星</el-button>
         </div>
       </div>
     </transition>
 
     <el-button 
-      v-if="showOverlay && !isEditMode && !selectedSatelliteCard" 
-      class="floating-edit-btn" 
+      v-if="showOverlay && !isSatEditMode && !selectedSatelliteCard" 
+      class="floating-sat-btn" 
       type="primary" 
       plain
-      @click="isEditMode = true"
+      @click="isSatEditMode = true"
     >
       编辑卫星菜单
-    </el-button>
+     </el-button>
 
-    <!-- 通信路径控制面板 -->
+     <el-button 
+       v-if="showOverlay && !isGroundEditMode && !selectedSatelliteCard" 
+       class="floating-gs-btn" 
+       type="success" 
+       plain
+       @click="isGroundEditMode = true"
+     >
+       编辑地面站菜单
+     </el-button>
+
+     <!-- 通信路径控制面板 -->
     <transition name="fade-panel">
       <div
         v-if="showOverlay && showPathPanel"
@@ -203,24 +213,24 @@
     </el-button>
 
     <transition name="fade-panel">
-      <div v-if="isEditMode" class="edit-drawer" @wheel.stop @mousedown.stop @touchmove.stop>
-        <div class="edit-drawer-head">
+      <div v-if="isSatEditMode" class="edit-panel" @wheel.stop @mousedown.stop @touchmove.stop>
+        <div class="edit-panel-head">
           <strong>卫星编辑</strong>
-          <el-button size="small" plain @click="isEditMode = false">关闭</el-button>
+          <el-button size="small" plain @click="isSatEditMode = false">关闭</el-button>
         </div>
         <div style="margin-bottom: 12px;">
-          <el-button type="primary" size="small" style="width: 100%;" @click="openAddDialog">
+          <el-button type="primary" size="small" style="width: 100%;" @click="openAddSatDialog">
             + 添加自定义卫星
           </el-button>
         </div>
-        <div class="edit-drawer-list">
-          <div v-for="sat in satelliteStore.satellites" :key="sat.id" class="edit-list-item">
-            <div class="edit-item-info">
+        <div class="edit-panel-list">
+          <div v-for="sat in satelliteStore.satellites" :key="sat.id" class="edit-panel-item">
+            <div class="edit-panel-info">
               <strong>{{ sat.name }}</strong>
               <span class="status-badge" :class="sat.status" style="transform: scale(0.8); transform-origin: left center;">{{ getStatusLabel(sat.status) }}</span>
             </div>
-            <div class="edit-item-actions">
-              <el-button size="small" link type="primary" @click="openEditDialog(sat)">编辑</el-button>
+            <div class="edit-panel-actions">
+              <el-button size="small" link type="primary" @click="openEditSatDialog(sat)">编辑</el-button>
               <el-button size="small" link type="danger" @click="deleteSat(sat.id)">删除</el-button>
             </div>
           </div>
@@ -228,22 +238,22 @@
       </div>
     </transition>
 
-    <el-dialog v-model="showEditDialog" :title="editForm.id ? '编辑卫星' : '添加卫星'" width="400px" append-to-body>
-      <el-form :model="editForm" label-width="80px">
+    <el-dialog v-model="showSatDialog" :title="satEditForm.id ? '编辑卫星' : '添加卫星'" width="400px" append-to-body>
+      <el-form :model="satEditForm" label-width="80px">
         <el-form-item label="名称">
-          <el-input v-model="editForm.name" />
+          <el-input v-model="satEditForm.name" />
         </el-form-item>
         <el-form-item label="高度 (m)">
-          <el-input-number v-model="editForm.alt" :step="1000" style="width: 100%" />
+          <el-input-number v-model="satEditForm.alt" :step="1000" style="width: 100%" />
         </el-form-item>
         <el-form-item label="倾角 (°)">
-          <el-input-number v-model="editForm.inclination" :step="1" style="width: 100%" />
+          <el-input-number v-model="satEditForm.inclination" :step="1" style="width: 100%" />
         </el-form-item>
         <el-form-item label="基础经度">
-          <el-input-number v-model="editForm.baseLon" :step="1" style="width: 100%" />
+          <el-input-number v-model="satEditForm.baseLon" :step="1" style="width: 100%" />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="editForm.status" style="width: 100%">
+          <el-select v-model="satEditForm.status" style="width: 100%">
             <el-option label="正常" value="normal" />
             <el-option label="告警" value="warning" />
             <el-option label="严重" value="danger" />
@@ -252,8 +262,52 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveEdit">确定</el-button>
+        <el-button @click="showSatDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveSatEdit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <transition name="fade-panel">
+      <div v-if="isGroundEditMode" class="edit-panel" @wheel.stop @mousedown.stop @touchmove.stop>
+        <div class="edit-panel-head">
+          <strong>地面站编辑</strong>
+          <el-button size="small" plain @click="isGroundEditMode = false">关闭</el-button>
+        </div>
+        <div style="margin-bottom: 12px;">
+          <el-button type="success" size="small" style="width: 100%;" @click="openAddGsDialog">
+            + 添加地面站
+          </el-button>
+        </div>
+        <div class="edit-panel-list">
+          <div v-for="gs in groundStations" :key="gs.id" class="edit-panel-item">
+            <div class="edit-panel-info">
+              <strong>{{ gs.name }}</strong>
+              <span style="color: #62666d; font-size: 12px;">{{ gs.latitude.toFixed(2) }}°, {{ gs.longitude.toFixed(2) }}°</span>
+            </div>
+            <div class="edit-panel-actions">
+              <el-button size="small" link type="primary" @click="openEditGsDialog(gs)">编辑</el-button>
+              <el-button size="small" link type="danger" @click="deleteGs(gs.id)">删除</el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <el-dialog v-model="showGsDialog" :title="gsEditForm.id ? '编辑地面站' : '添加地面站'" width="400px" append-to-body>
+      <el-form :model="gsEditForm" label-width="80px">
+        <el-form-item label="名称">
+          <el-input v-model="gsEditForm.name" />
+        </el-form-item>
+        <el-form-item label="纬度">
+          <el-input-number v-model="gsEditForm.latitude" :min="-90" :max="90" :step="0.1" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="经度">
+          <el-input-number v-model="gsEditForm.longitude" :min="-180" :max="180" :step="0.1" style="width: 100%" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showGsDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveGsEdit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -319,8 +373,18 @@ const selectedSatelliteCard = computed(() => satelliteStore.selectedSatellite)
 const selectedOrbitMetrics = computed(() =>
   selectedSatelliteCard.value ? getOrbitMetrics(selectedSatelliteCard.value.alt || 500000) : null
 )
-const isEditMode = ref(false)
-const showEditDialog = ref(false)
+const isSatEditMode = ref(false)
+const showSatDialog = ref(false)
+const isGroundEditMode = ref(false)
+const showGsDialog = ref(false)
+const gsEditForm = ref({
+  id: '',
+  name: '',
+  latitude: 0,
+  longitude: 0
+})
+const groundStations = ref<Array<{ id: string; name: string; latitude: number; longitude: number }>>([])
+let nextGsId = 100
 
 // ===== 通信传输路径 (业务路径) 高亮 =====
 const showPathPanel = ref(false)
@@ -446,7 +510,7 @@ function clearActivePath() {
   if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
 }
 
-const editForm = ref({
+const satEditForm = ref({
   id: 0,
   name: '',
   alt: 550000,
@@ -488,8 +552,8 @@ function clearSelection() {
   }
 }
 
-function resetEditForm() {
-  editForm.value = {
+function resetSatForm() {
+  satEditForm.value = {
     id: 0,
     name: '',
     alt: 550000,
@@ -499,14 +563,14 @@ function resetEditForm() {
   }
 }
 
-function openAddDialog() {
-  resetEditForm()
-  showEditDialog.value = true
+function openAddSatDialog() {
+  resetSatForm()
+  showSatDialog.value = true
 }
 
-function openEditDialog(sat: any) {
+function openEditSatDialog(sat: any) {
   if (!sat) return
-  editForm.value = {
+  satEditForm.value = {
     id: sat.id || 0,
     name: sat.name || '',
     alt: sat.alt || 550000,
@@ -514,28 +578,28 @@ function openEditDialog(sat: any) {
     baseLon: sat.baseLon || 0,
     status: sat.status || 'normal'
   }
-  showEditDialog.value = true
+  showSatDialog.value = true
 }
 
-function saveEdit() {
+function saveSatEdit() {
   const payload = {
-    name: editForm.value.name,
-    alt: editForm.value.alt,
-    inclination: editForm.value.inclination,
-    baseLon: editForm.value.baseLon,
-    status: editForm.value.status
+    name: satEditForm.value.name,
+    alt: satEditForm.value.alt,
+    inclination: satEditForm.value.inclination,
+    baseLon: satEditForm.value.baseLon,
+    status: satEditForm.value.status
   }
 
-  if (editForm.value.id) {
-    satelliteStore.updateSatellite(editForm.value.id, payload)
-    if (satelliteStore.selectedSatelliteId === editForm.value.id) {
-      satelliteStore.selectedSatelliteId = editForm.value.id
+  if (satEditForm.value.id) {
+    satelliteStore.updateSatellite(satEditForm.value.id, payload)
+    if (satelliteStore.selectedSatelliteId === satEditForm.value.id) {
+      satelliteStore.selectedSatelliteId = satEditForm.value.id
     }
   } else {
     satelliteStore.addSatellite(payload)
   }
 
-  showEditDialog.value = false
+  showSatDialog.value = false
 }
 
 function deleteSat(id: number) {
@@ -543,6 +607,54 @@ function deleteSat(id: number) {
   if (selectedSatelliteCard.value?.id === id) {
     clearSelection()
   }
+}
+
+function resetGsForm() {
+  gsEditForm.value = { id: '', name: '', latitude: 0, longitude: 0 }
+}
+
+function openAddGsDialog() {
+  resetGsForm()
+  showGsDialog.value = true
+}
+
+function openEditGsDialog(gs: { id: string; name: string; latitude: number; longitude: number }) {
+  gsEditForm.value = { ...gs }
+  showGsDialog.value = true
+}
+
+function saveGsEdit() {
+  const form = gsEditForm.value
+  if (form.id) {
+    const existing = groundStations.value.find((g) => g.id === form.id)
+    if (existing) {
+      existing.name = form.name
+      existing.latitude = form.latitude
+      existing.longitude = form.longitude
+    }
+  } else {
+    form.id = `gs-user-${nextGsId++}`
+    groundStations.value.push({ ...form })
+  }
+  showGsDialog.value = false
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
+
+function deleteGs(id: string) {
+  groundStations.value = groundStations.value.filter((g) => g.id !== id)
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
+
+function syncGroundStations() {
+  const positions = satelliteStore.positions
+  groundStations.value = instanceStore.instances
+    .filter((item) => item.type === 'ground-station')
+    .map((item) => ({
+      id: item.instance_id,
+      name: item.name || item.instance_id,
+      latitude: positions[item.instance_id]?.latitude || 0,
+      longitude: positions[item.instance_id]?.longitude || 0
+    }))
 }
 
 function getOrbitMetrics(altitudeMeters: number) {
@@ -778,6 +890,28 @@ function buildScene(v: Cesium.Viewer) {
     })
   })
 
+  groundStations.value.forEach((gs) => {
+    const gsCartesian = Cesium.Cartesian3.fromDegrees(gs.longitude, gs.latitude, 30)
+    v.entities.add({
+      id: `ground-local-${gs.id}`,
+      name: gs.name,
+      position: gsCartesian,
+      cylinder: {
+        length: 180000,
+        topRadius: 0,
+        bottomRadius: 45000,
+        material: Cesium.Color.fromCssColorString('#f1c40f').withAlpha(0.7)
+      },
+      label: {
+        text: gs.name,
+        font: '600 12px "Microsoft YaHei", sans-serif',
+        pixelOffset: new Cesium.Cartesian2(0, -24),
+        fillColor: Cesium.Color.WHITE,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      }
+    })
+  })
+
   const pathLinkSet = new Set(activePathLinkIds.value)
   const pathNodeSet = new Set(activePath.value)
 
@@ -924,6 +1058,8 @@ onMounted(() => {
         linkStore.fetchAllResources(),
         satelliteStore.fetchPositions()
       ])
+
+      syncGroundStations()
 
       const v = await initCesium(cesiumContainer.value as HTMLElement)
       const canvasElement = v.canvas
@@ -1551,19 +1687,45 @@ onBeforeUnmount(() => {
   transform: translateY(10px);
 }
 
-.floating-edit-btn {
+.floating-sat-btn {
   position: absolute;
   top: 80px;
   right: 24px;
   z-index: 12;
   pointer-events: auto;
-  background: rgba(255,255,255,0.02) !important;
-  backdrop-filter: blur(16px);
-  border-color: rgba(255,255,255,0.06) !important;
-  color: #d0d6e0 !important;
+  background: #3b5d8a !important;
+  border-color: #3b5d8a !important;
+  color: #ffffff !important;
+  width: 160px !important;
+  justify-content: center !important;
 }
 
-.edit-drawer {
+.floating-sat-btn:hover {
+  background: #5b8def !important;
+  border-color: #5b8def !important;
+  color: #ffffff !important;
+}
+
+.floating-gs-btn {
+  position: absolute;
+  top: 128px;
+  right: 24px;
+  z-index: 12;
+  pointer-events: auto;
+  background: #2b6b3f !important;
+  border-color: #2b6b3f !important;
+  color: #ffffff !important;
+  width: 160px !important;
+  justify-content: center !important;
+}
+
+.floating-gs-btn:hover {
+  background: #3d9b5a !important;
+  border-color: #3d9b5a !important;
+  color: #ffffff !important;
+}
+
+.edit-panel {
   position: absolute;
   top: 80px;
   right: 24px;
@@ -1580,7 +1742,7 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-.edit-drawer-head {
+.edit-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1590,7 +1752,7 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-.edit-drawer-list {
+.edit-panel-list {
   display: flex;
   flex: 1;
   min-height: 0;
@@ -1604,11 +1766,11 @@ onBeforeUnmount(() => {
   scrollbar-color: rgba(138, 143, 152, 0.25) transparent;
 }
 
-.edit-drawer-list::-webkit-scrollbar { width: 8px; }
-.edit-drawer-list::-webkit-scrollbar-track { background: transparent; }
-.edit-drawer-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(138, 143, 152, 0.15); }
+.edit-panel-list::-webkit-scrollbar { width: 8px; }
+.edit-panel-list::-webkit-scrollbar-track { background: transparent; }
+.edit-panel-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(138, 143, 152, 0.15); }
 
-.edit-list-item {
+.edit-panel-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1618,7 +1780,7 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.edit-item-info strong {
+.edit-panel-info strong {
   display: block;
   color: #d0d6e0;
   font-weight: 500;

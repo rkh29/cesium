@@ -9,18 +9,19 @@
 | `npm run dev:electron` | Vite + Electron concurrently (requires `wait-on`) |
 | `npm run build:win` / `build:zip` | Production build + Electron-builder packaging → `dist-electron/` |
 
-No test/lint/formatter config. Validate with `npm run build` only.
+No test/lint/formatter config. Only validate with `npm run build`.  
+`build` output: `minify: false`, `sourcemap: true`, manual chunks for `element-plus` and `vue-vendor`.
 
 ## Architecture
 
-- **Framework**: Vue 3 + TypeScript + Vite, Element Plus UI, Pinia state, Vue Router (hash history)
-- **3D**: Cesium (`vite-plugin-cesium`, `ion.cesium.com` token via `VITE_CESIUM_ION_TOKEN` in `.env`) — wired via `useCesium` composable. Three.js used separately in `SatNetViewer.vue` (not a Cesium replacement).
-- **ECharts** for dashboard charts
-- **Auth**: Local-only via `src/stores/auth.ts` (`localStorage`). Test accounts: `admin/admin`, `operator/ops`, `viewer/viewer`
-- **Dark mode**: `localStorage` key `theme` + `document.documentElement.classList.add('dark')`
-- **Polling**: `usePolling` composable at `src/composables/usePolling.ts` (default 5s interval)
+- **Framework**: Vue 3 + TypeScript + Vite, Element Plus (zh-cn locale), Pinia, Vue Router (hash history)
+- **3D**: Cesium via `vite-plugin-cesium`, token from `VITE_CESIUM_ION_TOKEN` in `.env`. Three.js used separately in `SatNetViewer.vue` (demo only, not a Cesium replacement).
+- **ECharts** on dashboard; **Axios** for all API calls (interceptor unwraps `ApiResponse.code/msg/data`, rejects on `code !== 0`)
+- **Auth**: Local-only via `src/stores/auth.ts` (`localStorage` keys `satops_user`, `satops_token`, `satops_registered_users`). Only hardcoded account: `admin`/`admin`. Other users self-register (default role `viewer`). Roles: `admin`, `operator`, `viewer`.
+- **Dark mode**: `localStorage` key `theme` + `document.documentElement.classList.add('dark')`. Defaults to dark.
+- **Polling**: `usePolling` composable (`src/composables/usePolling.ts`, default 5s interval)
 
-## Routes (5 active, all `requiresAuth`)
+## Routes (7 total, 5 active pages — all `requiresAuth`)
 
 | Path | Component |
 |------|-----------|
@@ -29,49 +30,58 @@ No test/lint/formatter config. Validate with `npm run build` only.
 | `/editor` | VisualEditor → CesiumViewer (with edit panels) |
 | `/instances` | InstanceManagement |
 | `/links` | LinkManagement |
+| `/topology/instances` | redirect → `/instances` |
+| `/topology/links` | redirect → `/links` |
+| `/:pathMatch(.*)*` | catch-all redirect → `/` |
 
-## Cesium setup (`src/composables/useCesium.ts`)
+## Stores
 
-- Retries Viewer creation with 3 fallback strategies in Electron
-- `baseLayer: false` → manually adds ArcGIS World_Imagery + World_Boundaries_and_Places overlay
+- `src/stores/auth.ts` — login/logout, role-based guard
+- `src/stores/satellite.ts` — 450-satellite architecture (LEO 420 + MEO 24 + GEO 6), CRUD, position fetching
+- `src/stores/instance.ts`, `src/stores/link.ts` — topology data
+- `src/stores/emulate.ts` — emulation config
+- `src/stores/node.ts` — node management
+- `src/stores/ui.ts` — immersive mode toggle
+- `src/store/anomaly.ts` (note: `store/` not `stores/`) — `useAnomalyStore`, hits `/api/anomalies`
+
+## API layer (`src/api/index.ts`)
+
+- **Base URL logic**: If `VITE_API_BASE_URL` is set to a full URL (`http://...`), appends `/api` prefix. If unset, Vite dev proxy forwards `/api` → `http://172.30.106.121:8080` (5s timeout).
+- **WebSocket**: `wsUrl` export auto-constructs `ws(s)://host/api/ws` from `VITE_API_BASE_URL` or `window.location`.
+- API modules: `instanceApi`, `linkApi`, `nodeApi`, `resourceApi`, `emulateApi`, `platformApi`, `positionApi`, `fileApi`, `databaseApi`
+
+## Cesium (`src/composables/useCesium.ts`)
+
+- **Singleton pattern**: single `ShallowRef<Viewer>` shared across all callers
+- Retries Viewer creation with 3 fallback strategies in Electron (1s delay between attempts)
+- `baseLayer: false` → ArcGIS World_Imagery + World_Boundaries_and_Places overlay (alpha 0.5)
 - Terrain: `CesiumWorldTerrain` with `requestVertexNormals: true`, `verticalExaggeration: 1.5`
-- `resolutionScale = 1` (fixed, not scaled by devicePixelRatio)
 - Disables credit display, sun, moon, fog, collision detection
-- Camera zoom clamped: `min=5,000,000`, `max=80,000,000`
-- Requires `VITE_CESIUM_ION_TOKEN` in `.env` — token needs `assets:read` permission
+- Camera zoom: `minZoom=5,000,000`, `maxZoom=80,000,000`
+- Requires `VITE_CESIUM_ION_TOKEN` with `assets:read` permission
 
-## CesiumViewer.vue satellite coloring
+## CesiumViewer.vue (`src/components/cesium/CesiumViewer.vue`)
 
-Satellite 3D model colors classified by orbit altitude:
-- **LEO** (≤10,000,000m alt): `#2ecc71` green
-- **MEO** (10M–30M alt): `#ff9f43` orange
-- **GEO** (>30,000,000m alt): `#ff6b6b` red
+- `buildScene` recreates all entities on any store change (satellites, ground stations, links, paths)
+- Satellite point coloring by altitude + status override:
+  - **LEO** (≤10,000,000m alt): `#2ecc71` green
+  - **MEO** (10M–30M alt): `#ff9f43` orange
+  - **GEO** (>30,000,000m alt): `#ff6b6b` red
+  - **Abnormal** (warning/danger/offline): uses `statusColor()` — red/yellow/gray
 - Ground stations: gold cylinder (`#f1c40f`)
+- Path trail: 30min for LEO, 1hr for GEO; wider/thicker for abnormal sats
 
-`buildScene` at `src/components/cesium/CesiumViewer.vue` recreates all entities on any store change. LEO/MEO/GEO coloring applies to both 3D point size and `point.color`.
+## TypeScript
 
-## Styling
-
-Custom CSS variables prefixed `--vscode-*`. Element Plus theme overridden via these variables. No CSS framework or preprocessor.
-
-## Environment
-
-`VITE_API_BASE_URL` — If set to a full URL, API prefix appended as `/api`. If unset, Vite proxy forwards `/api` to `http://172.30.106.121:8080`.
+- `strict: true`, `noUnusedLocals: true`, `noUnusedParameters: true`, `noFallthroughCasesInSwitch: true`
+- `tsconfig.node.json` only covers `vite.config.ts`
 
 ## Electron
 
 - Entry: `electron/main.cjs`, preload: `electron/preload.cjs`
-- Context isolation, exposes `window.electronAPI` (getAppVersion, minimize/maximize/closeWindow)
+- Context isolation, `window.electronAPI` (getAppVersion, minimize/maximize/closeWindow)
+- WebGL probe on `did-finish-load`; `backgroundThrottling: false`
 
-## CI
+## Styling
 
-GitHub Pages on push to main: `npm ci` → `npm run build` → upload `dist/`.
-
-## Stores
-
-- `auth.ts` — login/logout, role-based guard
-- `satellite.ts` — satellite CRUD + selection
-- `instance.ts`, `link.ts` — topology data
-- `emulate.ts` — emulation config
-- `node.ts` — node management
-- `ui.ts` — immersive mode toggle
+Custom CSS variables prefixed `--vscode-*`. Element Plus theme overridden via these variables (dark + light). No CSS framework or preprocessor. Sidebar layout in `App.vue`.
