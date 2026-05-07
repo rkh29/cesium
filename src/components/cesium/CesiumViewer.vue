@@ -270,30 +270,86 @@
     <transition name="fade-panel">
       <div v-if="isGroundEditMode" class="edit-panel" @wheel.stop @mousedown.stop @touchmove.stop>
         <div class="edit-panel-head">
-          <strong>地面站编辑</strong>
+          <div class="ground-panel-headline">
+            <strong>地面站管理</strong>
+            <span>共 {{ groundStations.length }} 个 · 自定义 {{ customGroundStations.length }} 个</span>
+          </div>
           <el-button size="small" plain @click="isGroundEditMode = false">关闭</el-button>
         </div>
-        <div style="margin-bottom: 12px;">
+
+        <div class="ground-tools">
+          <div class="ground-preset-box">
+            <span class="ground-section-title">预设导入</span>
+            <el-select
+              v-model="presetSelection"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="选择预设地面站"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="preset in availableGroundPresets"
+                :key="preset.id"
+                :label="`${preset.name}（${preset.latitude.toFixed(1)}°, ${preset.longitude.toFixed(1)}°）`"
+                :value="preset.id"
+              />
+            </el-select>
+            <div class="ground-preset-actions">
+              <el-button
+                size="small"
+                plain
+                :disabled="presetSelection.length === 0"
+                @click="importPresets(false)"
+              >
+                导入选中预设
+              </el-button>
+              <el-button
+                size="small"
+                link
+                type="success"
+                :disabled="availableGroundPresets.length === 0"
+                @click="importPresets(true)"
+              >
+                一键导入全部预设
+              </el-button>
+            </div>
+          </div>
+
           <el-button type="success" size="small" style="width: 100%;" @click="openAddGsDialog">
-            + 添加地面站
+            + 手动添加地面站
           </el-button>
+
+          <div class="ground-panel-tip">
+            自定义地面站会保存到本地，并自动接入最近 2 颗低轨卫星的上下行链路。
+          </div>
         </div>
+
         <div class="edit-panel-list">
           <div v-for="gs in groundStations" :key="gs.id" class="edit-panel-item">
             <div class="edit-panel-info">
               <strong>{{ gs.name }}</strong>
-              <span style="color: #62666d; font-size: 12px;">{{ gs.latitude.toFixed(2) }}°, {{ gs.longitude.toFixed(2) }}°</span>
+              <div class="ground-panel-meta">
+                <span>{{ gs.latitude.toFixed(2) }}°, {{ gs.longitude.toFixed(2) }}°</span>
+                <span v-if="gs.custom" class="ground-badge" :class="gs.preset ? 'preset' : 'custom'">
+                  {{ gs.preset ? '预设导入' : '手动添加' }}
+                </span>
+                <span v-else class="ground-badge system">系统内置</span>
+              </div>
             </div>
             <div class="edit-panel-actions">
-              <el-button size="small" link type="primary" @click="openEditGsDialog(gs)">编辑</el-button>
-              <el-button size="small" link type="danger" @click="deleteGs(gs.id)">删除</el-button>
+              <template v-if="gs.custom">
+                <el-button size="small" link type="primary" @click="openEditGsDialog(gs)">编辑</el-button>
+                <el-button size="small" link type="danger" @click="deleteGs(gs.id)">删除</el-button>
+              </template>
+              <span v-else class="ground-action-hint">只读</span>
             </div>
           </div>
         </div>
       </div>
     </transition>
 
-    <el-dialog v-model="showGsDialog" :title="gsEditForm.id ? '编辑地面站' : '添加地面站'" width="400px" append-to-body>
+    <el-dialog v-model="showGsDialog" :title="gsEditForm.id ? '编辑自定义地面站' : '手动添加地面站'" width="400px" append-to-body>
       <el-form :model="gsEditForm" label-width="80px">
         <el-form-item label="名称">
           <el-input v-model="gsEditForm.name" />
@@ -326,8 +382,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as Cesium from 'cesium'
+import { ElMessage } from 'element-plus'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import { useCesium } from '../../composables/useCesium'
+import type { Instance, Link } from '../../api/types'
 import { useInstanceStore } from '../../stores/instance'
 import { useLinkStore } from '../../stores/link'
 import { useSatelliteStore } from '../../stores/satellite'
@@ -363,6 +421,38 @@ const EARTH_RADIUS_METERS = 6378137
 const EARTH_MU = 3.986004418e14
 const EARTH_ROTATION_RAD_PER_SEC = (2 * Math.PI) / 86164.0905
 
+interface GroundPreset {
+  id: string
+  name: string
+  latitude: number
+  longitude: number
+}
+
+interface CustomGroundRecord extends GroundPreset {
+  preset?: boolean
+}
+
+interface GroundStationListItem extends GroundPreset {
+  custom: boolean
+  preset: boolean
+}
+
+const GLOBAL_GROUND_STATION_PRESETS: GroundPreset[] = [
+  { id: 'ground-preset-kashi', name: '喀什测控站', latitude: 39.47, longitude: 75.99 },
+  { id: 'ground-preset-sanya', name: '三亚测控站', latitude: 18.25, longitude: 109.5 },
+  { id: 'ground-preset-singapore', name: '新加坡接入站', latitude: 1.29, longitude: 103.85 },
+  { id: 'ground-preset-dubai', name: '迪拜接入站', latitude: 25.2, longitude: 55.27 },
+  { id: 'ground-preset-athens', name: '雅典测控站', latitude: 37.98, longitude: 23.72 },
+  { id: 'ground-preset-nairobi', name: '内罗毕接入站', latitude: -1.29, longitude: 36.82 },
+  { id: 'ground-preset-paris', name: '巴黎测控站', latitude: 48.86, longitude: 2.35 },
+  { id: 'ground-preset-recife', name: '累西腓接入站', latitude: -8.05, longitude: -34.88 },
+  { id: 'ground-preset-santiago', name: '圣地亚哥测控站', latitude: -33.45, longitude: -70.67 },
+  { id: 'ground-preset-sydney', name: '悉尼测控站', latitude: -33.87, longitude: 151.21 },
+  { id: 'ground-preset-honolulu', name: '火奴鲁鲁接入站', latitude: 21.31, longitude: -157.86 }
+]
+
+const CUSTOM_GROUND_STORAGE_KEY = 'custom-ground-stations-v1'
+
 const satelliteCount = computed(() => satelliteStore.satellites.length)
 const focusedSatelliteName = computed(() => satelliteStore.selectedSatellite?.name || '未选择')
 const focusedSatelliteStatus = computed(() =>
@@ -377,14 +467,38 @@ const isSatEditMode = ref(false)
 const showSatDialog = ref(false)
 const isGroundEditMode = ref(false)
 const showGsDialog = ref(false)
-const gsEditForm = ref({
+const gsEditForm = ref<CustomGroundRecord>({
   id: '',
   name: '',
-  latitude: 0,
-  longitude: 0
+  latitude: 30,
+  longitude: 110,
+  preset: false
 })
-const groundStations = ref<Array<{ id: string; name: string; latitude: number; longitude: number }>>([])
-let nextGsId = 100
+const presetSelection = ref<string[]>([])
+const customGroundStations = ref<CustomGroundRecord[]>([])
+const groundStations = computed<GroundStationListItem[]>(() =>
+  instanceStore.instances
+    .filter((item) => item.type.toLowerCase().includes('ground'))
+    .map((item) => {
+      const position = satelliteStore.positions[item.instance_id]
+      return {
+        id: item.instance_id,
+        name: item.name || item.instance_id,
+        latitude: position?.latitude ?? 0,
+        longitude: position?.longitude ?? 0,
+        custom: item.extra?.custom === 'true',
+        preset: item.extra?.preset === 'true'
+      }
+    })
+    .sort((a, b) => {
+      if (a.custom !== b.custom) return a.custom ? -1 : 1
+      return a.name.localeCompare(b.name, 'zh-CN')
+    })
+)
+const availableGroundPresets = computed(() => {
+  const existingIds = new Set(groundStations.value.map((item) => item.id))
+  return GLOBAL_GROUND_STATION_PRESETS.filter((preset) => !existingIds.has(preset.id))
+})
 
 // ===== 通信传输路径 (业务路径) 高亮 =====
 const showPathPanel = ref(false)
@@ -610,7 +724,13 @@ function deleteSat(id: number) {
 }
 
 function resetGsForm() {
-  gsEditForm.value = { id: '', name: '', latitude: 0, longitude: 0 }
+  gsEditForm.value = {
+    id: '',
+    name: '',
+    latitude: 30,
+    longitude: 110,
+    preset: false
+  }
 }
 
 function openAddGsDialog() {
@@ -618,43 +738,331 @@ function openAddGsDialog() {
   showGsDialog.value = true
 }
 
-function openEditGsDialog(gs: { id: string; name: string; latitude: number; longitude: number }) {
-  gsEditForm.value = { ...gs }
+function openEditGsDialog(gs: GroundStationListItem) {
+  if (!gs.custom) return
+  gsEditForm.value = {
+    id: gs.id,
+    name: gs.name,
+    latitude: gs.latitude,
+    longitude: gs.longitude,
+    preset: gs.preset
+  }
   showGsDialog.value = true
 }
 
-function saveGsEdit() {
-  const form = gsEditForm.value
-  if (form.id) {
-    const existing = groundStations.value.find((g) => g.id === form.id)
-    if (existing) {
-      existing.name = form.name
-      existing.latitude = form.latitude
-      existing.longitude = form.longitude
-    }
-  } else {
-    form.id = `gs-user-${nextGsId++}`
-    groundStations.value.push({ ...form })
+function isValidCustomGroundRecord(value: unknown): value is CustomGroundRecord {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.latitude === 'number' &&
+    Number.isFinite(candidate.latitude) &&
+    typeof candidate.longitude === 'number' &&
+    Number.isFinite(candidate.longitude)
+  )
+}
+
+function loadCustomGroundStations() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_GROUND_STORAGE_KEY)
+    if (!raw) return
+
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return
+
+    const seenIds = new Set<string>()
+    customGroundStations.value = parsed
+      .filter(isValidCustomGroundRecord)
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        preset: Boolean(item.preset)
+      }))
+      .filter((item) => {
+        if (seenIds.has(item.id)) return false
+        seenIds.add(item.id)
+        return true
+      })
+  } catch {
+    customGroundStations.value = []
   }
+}
+
+function persistCustomGroundStations() {
+  localStorage.setItem(CUSTOM_GROUND_STORAGE_KEY, JSON.stringify(customGroundStations.value))
+}
+
+function ensureGroundInstanceResource(instanceId: string) {
+  if (instanceStore.resources[instanceId]) return
+  instanceStore.resources[instanceId] = {
+    cpu_usage: 0,
+    mem_byte: 0,
+    swap_mem_byte: 0
+  }
+}
+
+function ensureGroundUplinkResource(linkId: string) {
+  if (linkStore.resources[linkId]) return
+  linkStore.resources[linkId] = {
+    recv_bps: 0,
+    send_bps: 0,
+    recv_pps: 0,
+    send_pps: 0,
+    recv_err_pps: 0,
+    send_err_pps: 0,
+    recv_drop_pps: 0,
+    send_drop_pps: 0
+  }
+}
+
+function removeGroundUplinkLinks(groundId: string) {
+  const removedIds = linkStore.links
+    .filter((link) => link.type === 'ground-uplink' && link.connect_instance.includes(groundId))
+    .map((link) => link.link_id)
+
+  if (removedIds.length === 0) return
+
+  linkStore.links = linkStore.links.filter(
+    (link) => !(link.type === 'ground-uplink' && link.connect_instance.includes(groundId))
+  )
+  removedIds.forEach((linkId) => {
+    delete linkStore.resources[linkId]
+  })
+}
+
+function toRadians(deg: number) {
+  return (deg * Math.PI) / 180
+}
+
+function greatCircleDeg(aLat: number, aLon: number, bLat: number, bLon: number) {
+  const lat1 = toRadians(aLat)
+  const lat2 = toRadians(bLat)
+  const deltaLat = lat2 - lat1
+  const deltaLon = toRadians(bLon - aLon)
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2
+  return 2 * Math.asin(Math.min(1, Math.sqrt(haversine)))
+}
+
+function isLeoCandidate(instance: Instance) {
+  if (!instance.type.toLowerCase().includes('satellite')) return false
+
+  const orbitLayer = `${instance.extra?.orbit_layer || instance.extra?.orbit || ''}`.toLowerCase()
+  if (orbitLayer.includes('leo') || orbitLayer.includes('low')) return true
+  if (orbitLayer.includes('meo') || orbitLayer.includes('geo')) return false
+
+  const identity = `${instance.instance_id} ${instance.name}`.toLowerCase()
+  if (identity.includes('geo') || identity.includes('meo')) return false
+  return true
+}
+
+function ensureUplinkLinksFor(record: CustomGroundRecord) {
+  removeGroundUplinkLinks(record.id)
+
+  const candidates = instanceStore.instances
+    .filter(isLeoCandidate)
+    .map((instance) => {
+      const position = satelliteStore.positions[instance.instance_id]
+      if (!position) return null
+      return {
+        id: instance.instance_id,
+        distance: greatCircleDeg(
+          record.latitude,
+          record.longitude,
+          position.latitude,
+          position.longitude
+        )
+      }
+    })
+    .filter((item): item is { id: string; distance: number } => item !== null)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 2)
+
+  candidates.forEach((candidate, index) => {
+    const linkId = `link-uplink-${record.id}-${index}`
+    const uplink: Link = {
+      link_id: linkId,
+      type: 'ground-uplink',
+      enable: true,
+      connect_instance: [record.id, candidate.id],
+      node_index: 0
+    }
+    linkStore.links.push(uplink)
+    ensureGroundUplinkResource(linkId)
+  })
+}
+
+function materializeGroundStation(record: CustomGroundRecord) {
+  const existing = instanceStore.instances.find((item) => item.instance_id === record.id)
+  const extra = {
+    ...(existing?.extra || {}),
+    custom: 'true',
+    preset: String(Boolean(record.preset))
+  }
+
+  if (existing) {
+    existing.name = record.name
+    existing.type = 'ground-station'
+    existing.start = true
+    existing.extra = extra
+  } else {
+    instanceStore.instances.push({
+      instance_id: record.id,
+      name: record.name,
+      type: 'ground-station',
+      start: true,
+      node_index: 0,
+      extra
+    })
+  }
+
+  ensureGroundInstanceResource(record.id)
+  satelliteStore.positions[record.id] = {
+    latitude: record.latitude,
+    longitude: record.longitude,
+    altitude: satelliteStore.positions[record.id]?.altitude ?? 50
+  }
+
+  ensureUplinkLinksFor(record)
+}
+
+function flushGroundStationChanges() {
+  persistCustomGroundStations()
+  rebuildScene()
+}
+
+function addGroundStation(
+  record: CustomGroundRecord,
+  options: { silent?: boolean; deferRefresh?: boolean } = {}
+) {
+  if (groundStations.value.some((item) => item.id === record.id)) {
+    if (!options.silent) ElMessage.warning('该地面站已存在')
+    return false
+  }
+
+  customGroundStations.value.push(record)
+  materializeGroundStation(record)
+
+  if (!options.deferRefresh) flushGroundStationChanges()
+  return true
+}
+
+function updateGroundStation(
+  record: CustomGroundRecord,
+  options: { deferRefresh?: boolean } = {}
+) {
+  const index = customGroundStations.value.findIndex((item) => item.id === record.id)
+  if (index < 0) return false
+
+  customGroundStations.value[index] = record
+  materializeGroundStation(record)
+
+  if (!options.deferRefresh) flushGroundStationChanges()
+  return true
+}
+
+function importPresets(all: boolean) {
+  const selectedPresets = all
+    ? availableGroundPresets.value
+    : availableGroundPresets.value.filter((preset) => presetSelection.value.includes(preset.id))
+
+  if (selectedPresets.length === 0) {
+    ElMessage.warning(all ? '当前没有可导入的预设地面站' : '请选择要导入的预设地面站')
+    return
+  }
+
+  let importedCount = 0
+  selectedPresets.forEach((preset) => {
+    if (addGroundStation({ ...preset, preset: true }, { silent: true, deferRefresh: true })) {
+      importedCount += 1
+    }
+  })
+
+  presetSelection.value = []
+
+  if (importedCount > 0) {
+    flushGroundStationChanges()
+    ElMessage.success(`已导入 ${importedCount} 个预设地面站`)
+  }
+}
+
+function saveGsEdit() {
+  const isEdit = Boolean(gsEditForm.value.id)
+  const name = gsEditForm.value.name.trim()
+  const latitude = Number(gsEditForm.value.latitude)
+  const longitude = Number(gsEditForm.value.longitude)
+
+  if (!name) {
+    ElMessage.error('请输入地面站名称')
+    return
+  }
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+    ElMessage.error('纬度需在 -90 到 90 之间')
+    return
+  }
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    ElMessage.error('经度需在 -180 到 180 之间')
+    return
+  }
+
+  const record: CustomGroundRecord = {
+    id: gsEditForm.value.id || `ground-custom-${Date.now()}`,
+    name,
+    latitude,
+    longitude,
+    preset: Boolean(gsEditForm.value.preset)
+  }
+
+  const success = isEdit ? updateGroundStation(record) : addGroundStation(record)
+  if (!success) return
+
   showGsDialog.value = false
-  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+  resetGsForm()
+  ElMessage.success(isEdit ? '地面站已更新' : '地面站已添加')
 }
 
 function deleteGs(id: string) {
-  groundStations.value = groundStations.value.filter((g) => g.id !== id)
-  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+  const target = groundStations.value.find((item) => item.id === id)
+  if (!target) return
+  if (!target.custom) {
+    ElMessage.warning('系统内置地面站暂不支持删除')
+    return
+  }
+
+  customGroundStations.value = customGroundStations.value.filter((item) => item.id !== id)
+  instanceStore.instances = instanceStore.instances.filter((item) => item.instance_id !== id)
+  delete instanceStore.resources[id]
+  delete satelliteStore.positions[id]
+  removeGroundUplinkLinks(id)
+
+  if (pathSourceId.value === id) pathSourceId.value = ''
+  if (pathTargetId.value === id) pathTargetId.value = ''
+  if (activePath.value.includes(id)) clearActivePath()
+
+  flushGroundStationChanges()
+  ElMessage.success('地面站已删除')
 }
 
-function syncGroundStations() {
-  const positions = satelliteStore.positions
-  groundStations.value = instanceStore.instances
-    .filter((item) => item.type === 'ground-station')
-    .map((item) => ({
-      id: item.instance_id,
-      name: item.name || item.instance_id,
-      latitude: positions[item.instance_id]?.latitude || 0,
-      longitude: positions[item.instance_id]?.longitude || 0
-    }))
+function restoreCustomGroundStations() {
+  if (customGroundStations.value.length === 0) return
+
+  let hasCollision = false
+  customGroundStations.value = customGroundStations.value.filter((record) => {
+    const existing = instanceStore.instances.find((item) => item.instance_id === record.id)
+    if (existing && existing.extra?.custom !== 'true') {
+      hasCollision = true
+      return false
+    }
+
+    materializeGroundStation(record)
+    return true
+  })
+
+  if (hasCollision) persistCustomGroundStations()
 }
 
 function getOrbitMetrics(altitudeMeters: number) {
@@ -890,28 +1298,6 @@ function buildScene(v: Cesium.Viewer) {
     })
   })
 
-  groundStations.value.forEach((gs) => {
-    const gsCartesian = Cesium.Cartesian3.fromDegrees(gs.longitude, gs.latitude, 30)
-    v.entities.add({
-      id: `ground-local-${gs.id}`,
-      name: gs.name,
-      position: gsCartesian,
-      cylinder: {
-        length: 180000,
-        topRadius: 0,
-        bottomRadius: 45000,
-        material: Cesium.Color.fromCssColorString('#f1c40f').withAlpha(0.7)
-      },
-      label: {
-        text: gs.name,
-        font: '600 12px "Microsoft YaHei", sans-serif',
-        pixelOffset: new Cesium.Cartesian2(0, -24),
-        fillColor: Cesium.Color.WHITE,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY
-      }
-    })
-  })
-
   const pathLinkSet = new Set(activePathLinkIds.value)
   const pathNodeSet = new Set(activePath.value)
 
@@ -1059,7 +1445,8 @@ onMounted(() => {
         satelliteStore.fetchPositions()
       ])
 
-      syncGroundStations()
+      loadCustomGroundStations()
+      restoreCustomGroundStations()
 
       const v = await initCesium(cesiumContainer.value as HTMLElement)
       const canvasElement = v.canvas
@@ -1770,6 +2157,13 @@ onBeforeUnmount(() => {
 .edit-panel-list::-webkit-scrollbar-track { background: transparent; }
 .edit-panel-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(138, 143, 152, 0.15); }
 
+.edit-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .edit-panel-item {
   display: flex;
   align-items: center;
@@ -1785,6 +2179,88 @@ onBeforeUnmount(() => {
   color: #d0d6e0;
   font-weight: 500;
   margin-bottom: 4px;
+}
+
+.ground-panel-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ground-panel-headline span,
+.ground-section-title,
+.ground-action-hint {
+  font-size: 12px;
+  color: #8a9aac;
+}
+
+.ground-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ground-preset-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ground-preset-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ground-panel-tip {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 184, 77, 0.25);
+  background: rgba(255, 184, 77, 0.06);
+  color: #d0a06b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ground-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: #62666d;
+  font-size: 12px;
+}
+
+.ground-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ground-badge.custom {
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.14);
+}
+
+.ground-badge.preset {
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.16);
+}
+
+.ground-badge.system {
+  color: #909399;
+  background: rgba(144, 147, 153, 0.18);
 }
 
 @media (max-width: 960px) {
