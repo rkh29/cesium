@@ -5,13 +5,14 @@ import cesium from 'vite-plugin-cesium'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const isGithubPages = process.env.GITHUB_ACTIONS === 'true'
+  const useLocalMock = env.VITE_API_MODE === 'mock'
 
   return {
     plugins: [vue(), cesium()],
     base: isGithubPages ? '/Satellite-Anomaly-Detection-System/' : './',
     server: {
       port: 3000,
-      proxy: env.VITE_API_BASE_URL
+      proxy: useLocalMock || env.VITE_API_BASE_URL
         ? {}
         : {
             '/api': {

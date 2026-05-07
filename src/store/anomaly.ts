@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { Anomaly } from '../types/anomaly'
-import axios from 'axios'
+import { anomalyApi } from '../api'
+import type { Anomaly } from '../types/anomaly'
 
 export const useAnomalyStore = defineStore('anomaly', {
   state: () => ({
@@ -22,8 +22,7 @@ export const useAnomalyStore = defineStore('anomaly', {
       this.loading = true
       this.error = null
       try {
-        const response = await axios.get('/api/anomalies')
-        this.anomalies = response.data
+        this.anomalies = await anomalyApi.getList()
       } catch (err: any) {
         this.error = err.message
       } finally {
@@ -33,10 +32,10 @@ export const useAnomalyStore = defineStore('anomaly', {
 
     async updateAnomalyStatus(id: number, status: 'pending' | 'fixed') {
       try {
-        const response = await axios.put(`/api/anomalies/${id}`, { status })
+        const updated = await anomalyApi.updateStatus(id, status)
         const index = this.anomalies.findIndex(a => a.id === id)
         if (index !== -1) {
-          this.anomalies[index] = response.data
+          this.anomalies[index] = updated
         }
       } catch (err: any) {
         this.error = err.message

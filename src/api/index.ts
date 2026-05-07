@@ -1,4 +1,6 @@
 import axios from 'axios'
+import type { Anomaly } from '../types/anomaly'
+import { createMockAdapter, resolveApiMode } from './mock-runtime'
 import type {
   ApiResponse,
   PageRequest,
@@ -21,11 +23,14 @@ import type {
   FileInfo
 } from './types'
 
-// Vite 环境变量：import.meta.env.VITE_API_BASE_URL
+// Vite 环境变量：
+// - VITE_API_BASE_URL：显式指定后端地址
+// - VITE_API_MODE=mock：启用前端本地 mock 数据，不再访问后端
 // 如果设置了完整 URL（如 http://localhost:8080），需要添加 /api 前缀
 // 如果使用代理（'/api'），则直接使用
 let baseURL = '/api'
-const envObj = (import.meta as any).env || {}
+const envObj = import.meta.env
+const apiMode = resolveApiMode(envObj)
 if (envObj.VITE_API_BASE_URL && envObj.VITE_API_BASE_URL !== '') {
   const envURL = envObj.VITE_API_BASE_URL as string
   // 如果是完整 URL（包含 http:// 或 https://），添加 /api 前缀
@@ -36,17 +41,22 @@ if (envObj.VITE_API_BASE_URL && envObj.VITE_API_BASE_URL !== '') {
   }
 }
 
-// 开发时打印 baseURL 以便调试
-if (envObj.DEV) {
-  console.log('[API] baseURL:', baseURL)
-}
-
 const api = axios.create({
   baseURL,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  adapter: apiMode === 'mock' ? createMockAdapter({ wrapApiResponse: true }) : undefined
+})
+
+const rawApi = axios.create({
+  baseURL,
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  adapter: apiMode === 'mock' ? createMockAdapter({ wrapApiResponse: false }) : undefined
 })
 
 api.interceptors.response.use(
@@ -308,6 +318,14 @@ export const fileApi = {
   
   download: (fileName: string): string => 
     `/api/file/download/${fileName}`
+}
+
+export const anomalyApi = {
+  getList: (): Promise<Anomaly[]> =>
+    rawApi.get('/anomalies').then((response) => response.data),
+
+  updateStatus: (id: number, status: 'pending' | 'fixed'): Promise<Anomaly> =>
+    rawApi.put(`/anomalies/${id}`, { status }).then((response) => response.data)
 }
 
 export const databaseApi = {
