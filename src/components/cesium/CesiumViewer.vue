@@ -202,6 +202,103 @@
       通信链路
     </el-button>
 
+    <el-button
+      v-if="showOverlay"
+      class="floating-ground-btn"
+      type="warning"
+      plain
+      @click="showGroundDialog = true"
+    >
+      地面站管理
+    </el-button>
+
+    <el-dialog
+      v-model="showGroundDialog"
+      title="地面站管理"
+      width="640px"
+      append-to-body
+      class="ground-dialog"
+    >
+      <el-tabs v-model="groundActiveTab">
+        <el-tab-pane label="导入预设全球基站" name="preset">
+          <div class="ground-tip">
+            选中需要导入的全球地面站，点击「导入选中」会同步在 3D 地图上落点，并自动生成与最近 2 颗 LEO 卫星的上下行链路。
+          </div>
+          <el-table
+            :data="presetTableData"
+            height="320"
+            size="small"
+            @selection-change="onPresetSelectionChange"
+          >
+            <el-table-column type="selection" width="44" />
+            <el-table-column prop="name" label="名称" min-width="160" />
+            <el-table-column prop="latitude" label="纬度" width="90" />
+            <el-table-column prop="longitude" label="经度" width="90" />
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag v-if="row.imported" type="success" size="small">已导入</el-tag>
+                <el-tag v-else type="info" size="small">未导入</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div class="ground-actions">
+            <el-button size="small" @click="importPresets(false)">导入选中</el-button>
+            <el-button type="primary" size="small" @click="importPresets(true)">全部导入</el-button>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="手动添加地面站" name="manual">
+          <el-form :model="manualForm" label-width="80px" size="small" @submit.prevent>
+            <el-form-item label="名称">
+              <el-input v-model="manualForm.name" placeholder="例：北京主控站" maxlength="32" />
+            </el-form-item>
+            <el-form-item label="纬度">
+              <el-input-number
+                v-model="manualForm.latitude"
+                :min="-90"
+                :max="90"
+                :precision="4"
+                :step="0.5"
+                style="width: 100%"
+              />
+            </el-form-item>
+            <el-form-item label="经度">
+              <el-input-number
+                v-model="manualForm.longitude"
+                :min="-180"
+                :max="180"
+                :precision="4"
+                :step="0.5"
+                style="width: 100%"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" size="small" @click="submitManual">添加到地图</el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+        <el-tab-pane :label="`已添加自定义 (${customGroundStations.length})`" name="list">
+          <div v-if="customGroundStations.length === 0" class="ground-empty">
+            还没有用户添加的地面站
+          </div>
+          <div v-else class="custom-ground-list">
+            <div v-for="g in customGroundStations" :key="g.id" class="custom-ground-item">
+              <div>
+                <strong>{{ g.name }}</strong>
+                <span>{{ g.latitude.toFixed(2) }}, {{ g.longitude.toFixed(2) }}</span>
+                <em v-if="g.preset">（预设）</em>
+              </div>
+              <el-button size="small" link type="danger" @click="removeCustomGroundStation(g.id)">
+                删除
+              </el-button>
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-dialog>
+
+
     <transition name="fade-panel">
       <div v-if="isEditMode" class="edit-drawer" @wheel.stop @mousedown.stop @touchmove.stop>
         <div class="edit-drawer-head">
@@ -321,6 +418,188 @@ const selectedOrbitMetrics = computed(() =>
 )
 const isEditMode = ref(false)
 const showEditDialog = ref(false)
+
+// ===== 地面站管理 (导入预设 / 手动添加) =====
+interface GroundPreset {
+  id: string
+  name: string
+  latitude: number
+  longitude: number
+}
+interface CustomGroundRecord extends GroundPreset {
+  preset?: boolean
+}
+
+const GLOBAL_GROUND_STATION_PRESETS: GroundPreset[] = [
+  { id: 'ground-preset-beijing', name: '北京地面站', latitude: 39.9042, longitude: 116.4074 },
+  { id: 'ground-preset-kashgar', name: '喀什地面站', latitude: 39.4677, longitude: 75.9898 },
+  { id: 'ground-preset-sanya', name: '三亚地面站', latitude: 18.2528, longitude: 109.5119 },
+  { id: 'ground-preset-mohe', name: '漠河地面站', latitude: 53.4836, longitude: 122.3653 },
+  { id: 'ground-preset-lijiang', name: '丽江地面站', latitude: 26.8721, longitude: 100.2299 },
+  { id: 'ground-preset-svalbard', name: 'Svalbard SvalSat', latitude: 78.2298, longitude: 15.4075 },
+  { id: 'ground-preset-kourou', name: 'Kourou (法属圭亚那)', latitude: 5.166, longitude: -52.683 },
+  { id: 'ground-preset-goldstone', name: 'Goldstone DSN', latitude: 35.4267, longitude: -116.89 },
+  { id: 'ground-preset-madrid', name: 'Madrid DSN', latitude: 40.4314, longitude: -4.2481 },
+  { id: 'ground-preset-canberra', name: 'Canberra DSN', latitude: -35.4014, longitude: 148.9819 },
+  { id: 'ground-preset-houston', name: 'Houston Mission Control', latitude: 29.5586, longitude: -95.0894 },
+  { id: 'ground-preset-cape', name: 'Cape Canaveral', latitude: 28.3922, longitude: -80.6077 },
+  { id: 'ground-preset-wallops', name: 'Wallops Flight Facility', latitude: 37.9402, longitude: -75.4664 },
+  { id: 'ground-preset-tokyo', name: 'Tokyo Tracking Station', latitude: 35.6762, longitude: 139.6503 },
+  { id: 'ground-preset-sydney', name: 'Sydney Tracking Station', latitude: -33.8688, longitude: 151.2093 },
+  { id: 'ground-preset-redu', name: 'Redu (ESA, Belgium)', latitude: 50.0019, longitude: 5.1453 },
+  { id: 'ground-preset-malindi', name: 'Malindi (Kenya)', latitude: -2.9956, longitude: 40.1944 }
+]
+
+const CUSTOM_GROUND_STORAGE_KEY = 'custom-ground-stations-v1'
+
+const showGroundDialog = ref(false)
+const groundActiveTab = ref<'preset' | 'manual' | 'list'>('preset')
+const presetSelection = ref<GroundPreset[]>([])
+const manualForm = ref<{ name: string; latitude: number; longitude: number }>({
+  name: '',
+  latitude: 30,
+  longitude: 110
+})
+const customGroundStations = ref<CustomGroundRecord[]>([])
+
+const presetTableData = computed(() =>
+  GLOBAL_GROUND_STATION_PRESETS.map((p) => ({
+    ...p,
+    imported: customGroundStations.value.some((c) => c.id === p.id)
+  }))
+)
+
+function onPresetSelectionChange(rows: GroundPreset[]) {
+  presetSelection.value = rows
+}
+
+function loadCustomGroundStations() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_GROUND_STORAGE_KEY)
+    if (!raw) return
+    const list = JSON.parse(raw) as CustomGroundRecord[]
+    if (Array.isArray(list)) customGroundStations.value = list
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistCustomGroundStations() {
+  localStorage.setItem(CUSTOM_GROUND_STORAGE_KEY, JSON.stringify(customGroundStations.value))
+}
+
+// 在 stores 中物化一个地面站：写 instance + position
+function materializeGroundStation(record: CustomGroundRecord) {
+  if (!instanceStore.instances.find((i) => i.instance_id === record.id)) {
+    instanceStore.instances.push({
+      instance_id: record.id,
+      name: record.name,
+      type: 'ground-station',
+      start: true,
+      node_index: 0,
+      extra: { custom: String(!record.preset) }
+    })
+  }
+  satelliteStore.positions[record.id] = {
+    latitude: record.latitude,
+    longitude: record.longitude,
+    altitude: 50
+  }
+  // 自动建 2 条与最近 LEO 卫星的 ground-uplink
+  ensureUplinkLinksFor(record)
+}
+
+function ensureUplinkLinksFor(record: CustomGroundRecord) {
+  const leoSats = satelliteStore.satellites.filter((s) => (s.alt || 0) <= 10000000)
+  const positionMap = satelliteStore.positions
+  const candidates = leoSats
+    .map((s) => {
+      const pos = positionMap[s.instanceId]
+      if (!pos) {
+        // 如果没有运行时位置，用轨道基础经度近似
+        return { id: s.instanceId, lat: 0, lon: s.baseLon || 0 }
+      }
+      return { id: s.instanceId, lat: pos.latitude, lon: pos.longitude }
+    })
+    .map((c) => ({
+      id: c.id,
+      d: greatCircleDeg(record.latitude, record.longitude, c.lat, c.lon)
+    }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 2)
+
+  candidates.forEach((c, idx) => {
+    const linkId = `link-uplink-${record.id}-${idx}`
+    if (linkStore.links.find((l) => l.link_id === linkId)) return
+    linkStore.links.push({
+      link_id: linkId,
+      type: 'ground-uplink',
+      enable: true,
+      connect_instance: [record.id, c.id],
+      node_index: 0
+    })
+  })
+}
+
+function greatCircleDeg(aLat: number, aLon: number, bLat: number, bLon: number) {
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const la1 = toRad(aLat)
+  const la2 = toRad(bLat)
+  const dLa = la2 - la1
+  const dLo = toRad(bLon - aLon)
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLo / 2) ** 2
+  return 2 * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+function addGroundStation(record: CustomGroundRecord) {
+  if (customGroundStations.value.some((c) => c.id === record.id)) return
+  customGroundStations.value.push(record)
+  materializeGroundStation(record)
+  persistCustomGroundStations()
+  rebuildScene()
+}
+
+function importPresets(all: boolean) {
+  const list = all ? GLOBAL_GROUND_STATION_PRESETS : presetSelection.value
+  if (!list || list.length === 0) return
+  list.forEach((p) => {
+    addGroundStation({ ...p, preset: true })
+  })
+}
+
+function submitManual() {
+  const name = manualForm.value.name.trim()
+  if (!name) return
+  const lat = Number(manualForm.value.latitude)
+  const lon = Number(manualForm.value.longitude)
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return
+  const id = `ground-custom-${Date.now()}`
+  addGroundStation({ id, name, latitude: lat, longitude: lon, preset: false })
+  manualForm.value = { name: '', latitude: 30, longitude: 110 }
+  groundActiveTab.value = 'list'
+}
+
+function removeCustomGroundStation(id: string) {
+  customGroundStations.value = customGroundStations.value.filter((g) => g.id !== id)
+  // 移除 instance
+  const ii = instanceStore.instances.findIndex((i) => i.instance_id === id)
+  if (ii >= 0) instanceStore.instances.splice(ii, 1)
+  // 删除 position
+  delete satelliteStore.positions[id]
+  // 删除关联的 ground-uplink 链路
+  linkStore.links = linkStore.links.filter(
+    (l) => !(l.type === 'ground-uplink' && l.connect_instance.includes(id))
+  )
+  persistCustomGroundStations()
+  rebuildScene()
+}
+
+function restoreCustomGroundStations() {
+  if (customGroundStations.value.length === 0) return
+  customGroundStations.value.forEach((g) => materializeGroundStation(g))
+}
+
 
 // ===== 通信传输路径 (业务路径) 高亮 =====
 const showPathPanel = ref(false)
@@ -925,6 +1204,9 @@ onMounted(() => {
         satelliteStore.fetchPositions()
       ])
 
+      loadCustomGroundStations()
+      restoreCustomGroundStations()
+
       const v = await initCesium(cesiumContainer.value as HTMLElement)
       const canvasElement = v.canvas
 
@@ -1294,6 +1576,114 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(16px);
 }
 
+.floating-ground-btn {
+  position: absolute !important;
+  left: 24px;
+  bottom: 48px;
+  z-index: 12;
+  pointer-events: auto;
+  background: rgba(255, 176, 32, 0.08) !important;
+  border-color: rgba(255, 176, 32, 0.45) !important;
+  color: #ffb020 !important;
+  backdrop-filter: blur(16px);
+}
+
+.ground-tip {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 176, 32, 0.08);
+  border: 1px solid rgba(255, 176, 32, 0.16);
+  color: #d0d6e0;
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+.ground-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ground-empty {
+  padding: 28px 12px;
+  text-align: center;
+  color: #8a8f98;
+  border: 1px dashed rgba(138, 143, 152, 0.26);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.custom-ground-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.custom-ground-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.custom-ground-item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.custom-ground-item strong {
+  color: #f7f8f8;
+}
+
+.custom-ground-item span,
+.custom-ground-item em {
+  color: #8a8f98;
+  font-size: 12px;
+}
+
+:deep(.ground-dialog .el-dialog) {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 16, 17, 0.92);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(20px);
+}
+
+:deep(.ground-dialog .el-dialog__header) {
+  margin-right: 0;
+  padding-bottom: 8px;
+}
+
+:deep(.ground-dialog .el-dialog__title) {
+  color: #f7f8f8;
+  font-weight: 600;
+}
+
+:deep(.ground-dialog .el-dialog__body) {
+  padding-top: 8px;
+}
+
+:deep(.ground-dialog .el-tabs__item) {
+  color: #8a8f98;
+}
+
+:deep(.ground-dialog .el-tabs__item.is-active) {
+  color: #ffb020;
+}
+
+:deep(.ground-dialog .el-tabs__active-bar) {
+  background-color: #ffb020;
+}
+
 
 .hud-card strong {
   display: block;
@@ -1650,6 +2040,19 @@ onBeforeUnmount(() => {
 
   .satellite-float-card {
     bottom: 96px;
+  }
+
+  .floating-path-btn,
+  .floating-ground-btn {
+    left: 16px;
+  }
+
+  .floating-path-btn {
+    bottom: 88px;
+  }
+
+  .floating-ground-btn {
+    bottom: 36px;
   }
 }
 </style>
