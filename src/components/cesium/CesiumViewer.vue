@@ -21,11 +21,6 @@
           <small>当前三维场景卫星数量</small>
         </div>
         <div class="hud-card">
-          <span class="hud-label">当前焦点</span>
-          <strong>{{ focusedSatelliteName }}</strong>
-          <small>{{ focusedSatelliteStatus }}</small>
-        </div>
-        <div class="hud-card">
           <span class="hud-label">场景模式</span>
           <strong>{{ sceneMode }}</strong>
           <small>自动巡航与手动查看切换</small>
@@ -454,10 +449,6 @@ const GLOBAL_GROUND_STATION_PRESETS: GroundPreset[] = [
 const CUSTOM_GROUND_STORAGE_KEY = 'custom-ground-stations-v1'
 
 const satelliteCount = computed(() => satelliteStore.satellites.length)
-const focusedSatelliteName = computed(() => satelliteStore.selectedSatellite?.name || '未选择')
-const focusedSatelliteStatus = computed(() =>
-  satelliteStore.selectedSatellite ? getStatusLabel(satelliteStore.selectedSatellite.status) : '全局自由视角'
-)
 const showAllStatus = computed(() => props.showAllStatus)
 const selectedSatelliteCard = computed(() => satelliteStore.selectedSatellite)
 const selectedOrbitMetrics = computed(() =>
