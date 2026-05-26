@@ -20,95 +20,26 @@ export interface Satellite {
 }
 
 function generateArchitecture(): Satellite[] {
-  const sats: Satellite[] = [];
-  let idCounter = 1;
+  const sats: Satellite[] = []
+  const orbitPhases = [0, 45, 90, 135, 180, 225, 270, 315]
 
-  // LEO Shell A: 200 sats, 550km, 53° incl, 20 planes x 10
-  for (let p = 0; p < 20; p++) {
-    const planeLon = (p / 20) * 360 - 180;
-    for (let s = 0; s < 10; s++) {
-      const phase = (s / 10) * 360;
-      sats.push({
-        id: idCounter,
-        name: `LEO-A-${p + 1}-${s + 1}`,
-        code: `LEO-A-${idCounter}`,
-        instanceId: `sat-leo-a-${idCounter}`,
-        status: 'normal',
-        alt: 550000,
-        inclination: 53,
-        baseLon: planeLon,
-        phase: phase,
-        cpu: 20,
-        temp: 35
-      });
-      idCounter++;
-    }
-  }
-
-  // LEO Shell B: 220 sats, 530km, 97.6° incl, 10 planes x 22
-  for (let p = 0; p < 10; p++) {
-    const planeLon = (p / 10) * 360 - 180;
-    for (let s = 0; s < 22; s++) {
-      const phase = (s / 22) * 360;
-      sats.push({
-        id: idCounter,
-        name: `LEO-B-${p + 1}-${s + 1}`,
-        code: `LEO-B-${idCounter}`,
-        instanceId: `sat-leo-b-${idCounter}`,
-        status: 'normal',
-        alt: 530000,
-        inclination: 97.6,
-        baseLon: planeLon,
-        phase: phase,
-        cpu: 20,
-        temp: 35
-      });
-      idCounter++;
-    }
-  }
-
-  // MEO: 24 sats, 21500km, 55° incl, 3 planes x 8
-  for (let p = 0; p < 3; p++) {
-    const planeLon = (p / 3) * 360 - 180;
-    for (let s = 0; s < 8; s++) {
-      const phase = (s / 8) * 360;
-      sats.push({
-        id: idCounter,
-        name: `MEO-${p + 1}-${s + 1}`,
-        code: `MEO-${idCounter}`,
-        instanceId: `sat-meo-${idCounter}`,
-        status: 'normal',
-        alt: 21500000,
-        inclination: 55,
-        baseLon: planeLon,
-        phase: phase,
-        cpu: 20,
-        temp: 35
-      });
-      idCounter++;
-    }
-  }
-
-  // GEO: 6 sats, 35786km, 0° incl, longitudes: 0, 60, 120, 180, 240, 300
-  const geoLons = [0, 60, 120, 180, 240, 300];
-  geoLons.forEach((lon, i) => {
+  orbitPhases.forEach((phase, index) => {
     sats.push({
-      id: idCounter,
-      name: `GEO-${i + 1}`,
-      code: `GEO-${idCounter}`,
-      instanceId: `sat-geo-${idCounter}`,
+      id: index + 1,
+      name: `演示卫星-${index + 1}`,
+      code: `DEMO-LEO-${index + 1}`,
+      instanceId: `sat-demo-${index + 1}`,
       status: 'normal',
-      alt: 35786000,
-      inclination: 0,
-      baseLon: lon,
-      phase: 0,
+      alt: 550000,
+      inclination: 53,
+      baseLon: 105,
+      phase,
       cpu: 20,
       temp: 35
-    });
-    idCounter++;
-  });
+    })
+  })
 
-  return sats;
+  return sats
 }
 
 export const useSatelliteStore = defineStore('satellite', () => {

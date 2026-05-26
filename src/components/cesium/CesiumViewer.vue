@@ -8,9 +8,8 @@
           <span><i class="dot meo"></i>中轨卫星</span>
           <span><i class="dot geo"></i>高轨卫星</span>
           <span><i class="dot ground"></i>地面站</span>
-          <span><i class="dot warn"></i>告警链路</span>
-          <span><i class="dot path"></i>通信路径</span>
-          <span><i class="dot uplink"></i>地面站链路</span>
+          <span><i class="dot path"></i>星间通信</span>
+          <span><i class="dot uplink"></i>星地通信</span>
         </div>
       </div>
 
@@ -23,7 +22,7 @@
         <div class="hud-card">
           <span class="hud-label">场景模式</span>
           <strong>{{ sceneMode }}</strong>
-          <small>自动巡航与手动查看切换</small>
+          <small>{{ sceneModeHint }}</small>
         </div>
       </div>
     </div>
@@ -170,28 +169,22 @@
           </el-select>
         </div>
         <div class="comm-path-actions">
-          <el-button type="primary" size="small" :disabled="!canRoute" @click="computeAndShowPath">
-            自动寻路并高亮
+          <el-button type="primary" size="small" :disabled="!canRoute" @click="applySelectedPath">
+            应用基站对
           </el-button>
-          <el-button size="small" @click="showDemoPath">演示</el-button>
-          <el-button size="small" plain :disabled="activePath.length === 0" @click="clearActivePath">
-            清除
-          </el-button>
-        </div>
-        <div class="comm-path-row uplink-toggle-row">
-          <el-switch
-            v-model="highlightUplinks"
+          <el-button size="small" @click="showDemoPath">默认演示</el-button>
+          <el-button
             size="small"
-            inline-prompt
-            active-text="高亮地面站↔卫星上下行"
-            inactive-text="不高亮地面站链路"
-            @change="rebuildScene"
-          />
-          <span class="uplink-hint">共 {{ uplinkLinkCount }} 条地面站上下行链路（按经纬度自动接入最近 LEO）</span>
+            plain
+            :disabled="!isCommunicationLoopRunning && activePathLinkIds.length === 0"
+            @click="pauseCommunicationLoop"
+          >
+            暂停
+          </el-button>
         </div>
         <div v-if="pathHopsLabel" class="comm-path-info">
-          <span>路径: {{ pathHopsLabel }}</span>
-          <span>跳数: {{ Math.max(activePath.length - 1, 0) }}</span>
+          <span>基站对: {{ pathHopsLabel }}</span>
+          <span>链路样式: 星地红色粗线 · 星间白色粗线</span>
         </div>
         <div v-else-if="pathError" class="comm-path-error">{{ pathError }}</div>
       </div>
@@ -382,8 +375,8 @@ import 'cesium/Build/Cesium/Widgets/widgets.css'
 import { useCesium } from '../../composables/useCesium'
 import type { Instance, Link } from '../../api/types'
 import { useInstanceStore } from '../../stores/instance'
-import { useLinkStore } from '../../stores/link'
-import { useSatelliteStore } from '../../stores/satellite'
+import { useLinkStore, type LinkDisplay } from '../../stores/link'
+import { useSatelliteStore, type Satellite } from '../../stores/satellite'
 import { useUIStore } from '../../stores/ui'
 
 const props = withDefaults(
@@ -411,10 +404,19 @@ const webglUnavailable = ref(false)
 const sceneMode = ref('自动巡航')
 let interactionTimeout: number | null = null
 let selectionHandler: Cesium.ScreenSpaceEventHandler | null = null
+let communicationLoopTimer: number | null = null
 
 const EARTH_RADIUS_METERS = 6378137
 const EARTH_MU = 3.986004418e14
-const EARTH_ROTATION_RAD_PER_SEC = (2 * Math.PI) / 86164.0905
+const ORBIT_DEMO_SPEED = 120
+const INTERACTION_MODE_RESET_DELAY_MS = 1200
+const ORBIT_POLYLINE_SEGMENT_DEGREES = 4
+const ORBIT_POLYLINE_REFRESH_SECONDS = 4
+const EARTH_ROTATION_RAD_PER_SEC = 7.2921159e-5
+const COMMUNICATION_ACTIVE_MS = 3400
+const COMMUNICATION_IDLE_MS = 1000
+const GROUND_COMMUNICATION_WIDTH = 8
+const SATELLITE_COMMUNICATION_WIDTH = 6
 
 interface GroundPreset {
   id: string
@@ -432,23 +434,28 @@ interface GroundStationListItem extends GroundPreset {
   preset: boolean
 }
 
-const GLOBAL_GROUND_STATION_PRESETS: GroundPreset[] = [
-  { id: 'ground-preset-kashi', name: '喀什测控站', latitude: 39.47, longitude: 75.99 },
-  { id: 'ground-preset-sanya', name: '三亚测控站', latitude: 18.25, longitude: 109.5 },
-  { id: 'ground-preset-singapore', name: '新加坡接入站', latitude: 1.29, longitude: 103.85 },
-  { id: 'ground-preset-dubai', name: '迪拜接入站', latitude: 25.2, longitude: 55.27 },
-  { id: 'ground-preset-athens', name: '雅典测控站', latitude: 37.98, longitude: 23.72 },
-  { id: 'ground-preset-nairobi', name: '内罗毕接入站', latitude: -1.29, longitude: 36.82 },
-  { id: 'ground-preset-paris', name: '巴黎测控站', latitude: 48.86, longitude: 2.35 },
-  { id: 'ground-preset-recife', name: '累西腓接入站', latitude: -8.05, longitude: -34.88 },
-  { id: 'ground-preset-santiago', name: '圣地亚哥测控站', latitude: -33.45, longitude: -70.67 },
-  { id: 'ground-preset-sydney', name: '悉尼测控站', latitude: -33.87, longitude: 151.21 },
-  { id: 'ground-preset-honolulu', name: '火奴鲁鲁接入站', latitude: 21.31, longitude: -157.86 }
+
+const DEMO_GROUND_STATIONS: GroundPreset[] = [
+  { id: 'ground-demo-west', name: '西部地面站', latitude: 31.2, longitude: 79.8 },
+  { id: 'ground-demo-east', name: '东部地面站', latitude: 39.9, longitude: 121.7 }
 ]
 
 const CUSTOM_GROUND_STORAGE_KEY = 'custom-ground-stations-v1'
 
 const satelliteCount = computed(() => satelliteStore.satellites.length)
+const focusedSatelliteName = computed(() => satelliteStore.selectedSatellite?.name || '未选择')
+const focusedSatelliteStatus = computed(() =>
+  satelliteStore.selectedSatellite ? getStatusLabel(satelliteStore.selectedSatellite.status) : '全局自由视角'
+)
+const sceneModeHint = computed(() => {
+  if (sceneMode.value === '聚焦查看') {
+    return `已跟踪目标 · 轨道演示 ×${ORBIT_DEMO_SPEED}`
+  }
+  if (sceneMode.value === '手动控制') {
+    return `可自由拖拽镜头，卫星网络持续运行 · ×${ORBIT_DEMO_SPEED}`
+  }
+  return `自动巡航与手动查看切换 · 轨道演示 ×${ORBIT_DEMO_SPEED}`
+})
 const showAllStatus = computed(() => props.showAllStatus)
 const selectedSatelliteCard = computed(() => satelliteStore.selectedSatellite)
 const selectedOrbitMetrics = computed(() =>
@@ -488,7 +495,7 @@ const groundStations = computed<GroundStationListItem[]>(() =>
 )
 const availableGroundPresets = computed(() => {
   const existingIds = new Set(groundStations.value.map((item) => item.id))
-  return GLOBAL_GROUND_STATION_PRESETS.filter((preset) => !existingIds.has(preset.id))
+  return DEMO_GROUND_STATIONS.filter((preset) => !existingIds.has(preset.id))
 })
 
 // ===== 通信传输路径 (业务路径) 高亮 =====
@@ -498,7 +505,8 @@ const pathTargetId = ref<string>('')
 const activePath = ref<string[]>([]) // 节点 instance_id 序列：源 -> 中转(卫星/GEO) -> 目的
 const activePathLinkIds = ref<string[]>([]) // 路径上对应的 link.id 顺序集合
 const pathError = ref<string>('')
-const highlightUplinks = ref<boolean>(true) // 是否额外高亮所有"地面基站↔卫星"上下行链路
+const routeCycleIndex = ref(0)
+const isCommunicationLoopRunning = ref(false)
 
 const groundStationOptions = computed(() =>
   instanceStore.instancesForDisplay.filter((item) =>
@@ -510,10 +518,32 @@ const canRoute = computed(
   () => !!pathSourceId.value && !!pathTargetId.value && pathSourceId.value !== pathTargetId.value
 )
 
-// 地面站↔卫星上下行链路条数（仅统计 ground-uplink 类型）
-const uplinkLinkCount = computed(
-  () => linkStore.linksForDisplay.filter((link) => link.type === 'ground-uplink').length
-)
+function isInterSatelliteLinkType(type: Link['type']) {
+  return type === 'isl' || type === 'geo-backbone'
+}
+
+function isSatelliteGroundLinkType(type: Link['type']) {
+  return type === 'ground-uplink'
+}
+
+function shouldRenderCommunicationLink(link: Pick<Link, 'type'>) {
+  return isInterSatelliteLinkType(link.type) || isSatelliteGroundLinkType(link.type)
+}
+
+type OrbitBucket = 'leo' | 'meo' | 'geo'
+
+function getOrbitBucket(altitudeMeters: number): OrbitBucket {
+  if (altitudeMeters > 30000000) return 'geo'
+  if (altitudeMeters > 10000000) return 'meo'
+  return 'leo'
+}
+
+function getEndpointSequenceIndex(endpointId: string) {
+  const numericMatch = endpointId.match(/(\d+)(?!.*\d)/)
+  if (!numericMatch) return null
+  const index = Number(numericMatch[1]) - 1
+  return Number.isFinite(index) && index >= 0 ? index : null
+}
 
 function rebuildScene() {
   if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
@@ -533,79 +563,141 @@ const pathHopsLabel = computed(() => {
 })
 
 // 用启用的链路构造无向图，BFS 找最短跳数路径
-function findRoute(srcId: string, dstId: string): { nodes: string[]; linkIds: string[] } | null {
-  const adj = new Map<string, Array<{ to: string; linkId: string }>>()
-  linkStore.linksForDisplay.forEach((link) => {
-    if (!link.enabled) return
-    if (link.status === 'danger') return // 跳过故障链路
-    const [a, b] = link.endpoints
-    if (!adj.has(a)) adj.set(a, [])
-    if (!adj.has(b)) adj.set(b, [])
-    adj.get(a)!.push({ to: b, linkId: link.id })
-    adj.get(b)!.push({ to: a, linkId: link.id })
+function isGroundStationVisibleToSatellite(
+  ground: { latitude: number; longitude: number; altitude?: number },
+  satellitePosition: Cesium.Cartesian3
+) {
+  const groundPosition = Cesium.Cartesian3.fromDegrees(
+    ground.longitude,
+    ground.latitude,
+    ground.altitude || 30
+  )
+  const groundNormal = Cesium.Cartesian3.normalize(groundPosition, new Cesium.Cartesian3())
+  const sightVector = Cesium.Cartesian3.subtract(
+    satellitePosition,
+    groundPosition,
+    new Cesium.Cartesian3()
+  )
+
+  return Cesium.Cartesian3.dot(groundNormal, sightVector) > 0
+}
+
+function getDynamicGroundUplinkLinks() {
+  const v = viewer.value
+  if (!v || v.isDestroyed()) return []
+
+  const result: LinkDisplay[] = []
+  const leoSatellites = satelliteStore.satellites.filter((sat) => getOrbitBucket(sat.alt || 0) === 'leo')
+  const currentTime = v.clock.currentTime
+  const startTime = v.clock.startTime
+
+  groundStationOptions.value.forEach((ground) => {
+    const groundPosition = satelliteStore.positions[ground.id]
+    if (!groundPosition) return
+
+    const nearest = leoSatellites
+      .map((sat) => {
+        const satCartesian = getSatellitePosition(sat, currentTime, startTime)
+        if (!isGroundStationVisibleToSatellite(groundPosition, satCartesian)) return null
+
+        const satCartographic = Cesium.Cartographic.fromCartesian(satCartesian)
+        if (!satCartographic) return null
+
+        return {
+          sat,
+          distance: greatCircleDeg(
+            groundPosition.latitude,
+            groundPosition.longitude,
+            Cesium.Math.toDegrees(satCartographic.latitude),
+            Cesium.Math.toDegrees(satCartographic.longitude)
+          )
+        }
+      })
+      .filter((item): item is { sat: Satellite; distance: number } => item !== null)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 1)
+
+    nearest.forEach(({ sat }) => {
+      result.push({
+        id: `dynamic-uplink-${ground.id}-${sat.instanceId}`,
+        type: 'ground-uplink',
+        status: 'normal',
+        enabled: true,
+        endpoints: [ground.id, sat.instanceId],
+        recvBps: 0,
+        sendBps: 0,
+        nodeIndex: 0
+      })
+    })
   })
 
-  if (!adj.has(srcId) || !adj.has(dstId)) return null
+  return result
+}
 
-  const prev = new Map<string, { from: string; linkId: string }>()
-  const visited = new Set<string>([srcId])
-  const queue: string[] = [srcId]
-  while (queue.length) {
-    const cur = queue.shift()!
-    if (cur === dstId) break
-    const nb = adj.get(cur) || []
-    for (const { to, linkId } of nb) {
-      if (visited.has(to)) continue
-      visited.add(to)
-      prev.set(to, { from: cur, linkId })
-      queue.push(to)
-    }
+function getRouteLinks() {
+  return getDynamicGroundUplinkLinks()
+}
+
+function findRoute(srcId: string, dstId: string): { nodes: string[]; linkIds: string[] } | null {
+  const routeLinks = getRouteLinks()
+  const sourceLink = routeLinks.find((link) => link.endpoints[0] === srcId)
+  const targetLink = routeLinks.find((link) => link.endpoints[0] === dstId)
+
+  if (!sourceLink || !targetLink) return null
+
+  const sourceSatelliteId = sourceLink.endpoints[1]
+  const targetSatelliteId = targetLink.endpoints[1]
+
+  const linkIds = [sourceLink.id]
+  const nodes = [srcId, sourceSatelliteId]
+
+  if (sourceSatelliteId !== targetSatelliteId) {
+    const relayLinkId = `dynamic-isl-${sourceSatelliteId}-${targetSatelliteId}`
+    linkIds.push(relayLinkId)
+    nodes.push(targetSatelliteId)
   }
 
-  if (!prev.has(dstId) && srcId !== dstId) return null
+  linkIds.push(targetLink.id)
+  nodes.push(dstId)
 
-  const nodes: string[] = []
-  const linkIds: string[] = []
-  let cur = dstId
-  while (cur !== srcId) {
-    const p = prev.get(cur)
-    if (!p) return null
-    nodes.unshift(cur)
-    linkIds.unshift(p.linkId)
-    cur = p.from
-  }
-  nodes.unshift(srcId)
   return { nodes, linkIds }
 }
 
 function computeAndShowPath() {
-  if (!canRoute.value) return
+  if (!canRoute.value) return false
   pathError.value = ''
   const route = findRoute(pathSourceId.value, pathTargetId.value)
   if (!route) {
     activePath.value = []
     activePathLinkIds.value = []
-    pathError.value = '无法在当前可用链路中找到从源端到目的端的通路'
+    pathError.value = '当前没有卫星同时满足两端通信条件'
     if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
-    return
+    return false
   }
   activePath.value = route.nodes
   activePathLinkIds.value = route.linkIds
   if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+  return true
+}
+
+function applySelectedPath() {
+  stopCommunicationLoop()
+  return computeAndShowPath()
 }
 
 function showDemoPath() {
-  // 演示：选择两个边界监测站作为源/目的；如不存在则取前两个地面站
   const grounds = groundStationOptions.value
   if (grounds.length < 2) {
+    stopCommunicationLoop()
+    clearActivePath()
+    routeCycleIndex.value = 0
     pathError.value = '地面站不足，无法演示'
-    return
+    return false
   }
-  const src = grounds.find((g) => g.id === 'ground-boundary-west') || grounds[0]
-  const dst = grounds.find((g) => g.id === 'ground-boundary-east') || grounds[grounds.length - 1]
-  pathSourceId.value = src.id
-  pathTargetId.value = dst.id
-  computeAndShowPath()
+  pathSourceId.value = 'ground-demo-west'
+  pathTargetId.value = 'ground-demo-east'
+  startCommunicationLoop(true)
+  return true
 }
 
 function clearActivePath() {
@@ -613,6 +705,46 @@ function clearActivePath() {
   activePathLinkIds.value = []
   pathError.value = ''
   if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+}
+
+function pauseCommunicationLoop() {
+  stopCommunicationLoop()
+  clearActivePath()
+}
+
+function stopCommunicationLoop() {
+  if (communicationLoopTimer !== null) {
+    window.clearTimeout(communicationLoopTimer)
+    communicationLoopTimer = null
+  }
+  isCommunicationLoopRunning.value = false
+}
+
+function scheduleNextCommunicationCycle(delayMs = COMMUNICATION_IDLE_MS) {
+  stopCommunicationLoop()
+
+  if (!canRoute.value) {
+    clearActivePath()
+    pathError.value = '地面站不足，无法演示'
+    return
+  }
+
+  isCommunicationLoopRunning.value = true
+  communicationLoopTimer = window.setTimeout(() => {
+    const hasRoute = computeAndShowPath()
+    communicationLoopTimer = window.setTimeout(
+      () => {
+        clearActivePath()
+        if (!isCommunicationLoopRunning.value) return
+        scheduleNextCommunicationCycle()
+      },
+      hasRoute ? COMMUNICATION_ACTIVE_MS : COMMUNICATION_IDLE_MS
+    )
+  }, delayMs)
+}
+
+function startCommunicationLoop(immediate = false) {
+  scheduleNextCommunicationCycle(immediate ? 0 : COMMUNICATION_IDLE_MS)
 }
 
 const satEditForm = ref({
@@ -1039,21 +1171,9 @@ function deleteGs(id: string) {
 }
 
 function restoreCustomGroundStations() {
-  if (customGroundStations.value.length === 0) return
-
-  let hasCollision = false
-  customGroundStations.value = customGroundStations.value.filter((record) => {
-    const existing = instanceStore.instances.find((item) => item.instance_id === record.id)
-    if (existing && existing.extra?.custom !== 'true') {
-      hasCollision = true
-      return false
-    }
-
-    materializeGroundStation(record)
-    return true
+  DEMO_GROUND_STATIONS.forEach((record) => {
+    materializeGroundStation({ ...record, preset: true })
   })
-
-  if (hasCollision) persistCustomGroundStations()
 }
 
 function getOrbitMetrics(altitudeMeters: number) {
@@ -1072,65 +1192,94 @@ function getOrbitMetrics(altitudeMeters: number) {
   }
 }
 
-function getSatellitePosition(sat: any, time: Cesium.JulianDate, startTime: Cesium.JulianDate) {
-  const seconds = Cesium.JulianDate.secondsDifference(time, startTime)
-  const orbit = getOrbitMetrics(sat.alt || 500000)
-  const phase0 = Cesium.Math.toRadians(sat.phase || 0)
-  const inclination = Cesium.Math.toRadians(sat.inclination || 0)
-  const raan = Cesium.Math.toRadians(sat.baseLon || 0)
-  const trueAnomaly = phase0 + (seconds / orbit.periodSeconds) * 2 * Math.PI
+function getOrbitElapsedSeconds(time: Cesium.JulianDate, startTime: Cesium.JulianDate) {
+  return Cesium.JulianDate.secondsDifference(time, startTime) * ORBIT_DEMO_SPEED
+}
 
-  const xOrbital = orbit.orbitalRadius * Math.cos(trueAnomaly)
-  const yOrbital = orbit.orbitalRadius * Math.sin(trueAnomaly)
+function getSatelliteOrbitElements(sat: any) {
+  return {
+    orbit: getOrbitMetrics(sat.alt || 500000),
+    phaseRad: Cesium.Math.toRadians(sat.phase || 0),
+    inclinationRad: Cesium.Math.toRadians(sat.inclination || 0),
+    raanRad: Cesium.Math.toRadians(sat.baseLon || 0)
+  }
+}
 
-  const cosRaan = Math.cos(raan)
-  const sinRaan = Math.sin(raan)
-  const cosInclination = Math.cos(inclination)
-  const sinInclination = Math.sin(inclination)
+function getOrbitPositionInEci(
+  orbitalRadius: number,
+  inclinationRad: number,
+  raanRad: number,
+  trueAnomalyRad: number
+) {
+  const xOrbital = orbitalRadius * Math.cos(trueAnomalyRad)
+  const yOrbital = orbitalRadius * Math.sin(trueAnomalyRad)
 
-  const xEci = cosRaan * xOrbital - sinRaan * cosInclination * yOrbital
-  const yEci = sinRaan * xOrbital + cosRaan * cosInclination * yOrbital
-  const zEci = sinInclination * yOrbital
+  const cosRaan = Math.cos(raanRad)
+  const sinRaan = Math.sin(raanRad)
+  const cosInclination = Math.cos(inclinationRad)
+  const sinInclination = Math.sin(inclinationRad)
 
-  const earthRotation = EARTH_ROTATION_RAD_PER_SEC * seconds
+  return {
+    x: cosRaan * xOrbital - sinRaan * cosInclination * yOrbital,
+    y: sinRaan * xOrbital + cosRaan * cosInclination * yOrbital,
+    z: sinInclination * yOrbital
+  }
+}
+
+function convertEciToEcef(
+  position: { x: number; y: number; z: number },
+  orbitElapsedSeconds: number
+) {
+  const earthRotation = EARTH_ROTATION_RAD_PER_SEC * orbitElapsedSeconds
   const cosEarthRotation = Math.cos(earthRotation)
   const sinEarthRotation = Math.sin(earthRotation)
 
-  const xEcef = cosEarthRotation * xEci + sinEarthRotation * yEci
-  const yEcef = -sinEarthRotation * xEci + cosEarthRotation * yEci
-  const zEcef = zEci
-
-  const longitude = Math.atan2(yEcef, xEcef)
-  const latitude = Math.atan2(zEcef, Math.sqrt(xEcef ** 2 + yEcef ** 2))
-
-  return Cesium.Cartesian3.fromRadians(longitude, latitude, sat.alt || 500000)
+  return new Cesium.Cartesian3(
+    cosEarthRotation * position.x + sinEarthRotation * position.y,
+    -sinEarthRotation * position.x + cosEarthRotation * position.y,
+    position.z
+  )
 }
 
-function makeOrbitPositions(inclination: number, baseLon: number, altitude: number) {
+function getSatellitePosition(sat: any, time: Cesium.JulianDate, startTime: Cesium.JulianDate) {
+  const orbitElapsedSeconds = getOrbitElapsedSeconds(time, startTime)
+  const { orbit, phaseRad, inclinationRad, raanRad } = getSatelliteOrbitElements(sat)
+  const trueAnomaly = phaseRad + (orbitElapsedSeconds / orbit.periodSeconds) * 2 * Math.PI
+  const positionInEci = getOrbitPositionInEci(
+    orbit.orbitalRadius,
+    inclinationRad,
+    raanRad,
+    trueAnomaly
+  )
+
+  return convertEciToEcef(positionInEci, orbitElapsedSeconds)
+}
+
+function makeOrbitPositions(
+  sat: any,
+  time: Cesium.JulianDate,
+  startTime: Cesium.JulianDate,
+  sampleStepDegrees = ORBIT_POLYLINE_SEGMENT_DEGREES
+) {
   const points: Cesium.Cartesian3[] = []
-  const orbit = getOrbitMetrics(altitude || 500000)
-  const inclRad = Cesium.Math.toRadians(inclination || 0)
-  const raan = Cesium.Math.toRadians(baseLon || 0)
-  const cosRaan = Math.cos(raan)
-  const sinRaan = Math.sin(raan)
-  const cosInclination = Math.cos(inclRad)
-  const sinInclination = Math.sin(inclRad)
-  for (let i = 0; i <= 360; i += 2) {
-    const trueAnomaly = Cesium.Math.toRadians(i)
-    const xOrbital = orbit.orbitalRadius * Math.cos(trueAnomaly)
-    const yOrbital = orbit.orbitalRadius * Math.sin(trueAnomaly)
+  const orbitElapsedSeconds = getOrbitElapsedSeconds(time, startTime)
+  const { orbit, inclinationRad, raanRad } = getSatelliteOrbitElements(sat)
+  const step = Math.max(1, sampleStepDegrees)
 
-    const xEcef = cosRaan * xOrbital - sinRaan * cosInclination * yOrbital
-    const yEcef = sinRaan * xOrbital + cosRaan * cosInclination * yOrbital
-    const zEcef = sinInclination * yOrbital
+  for (let degree = 0; degree <= 360; degree += step) {
+    const positionInEci = getOrbitPositionInEci(
+      orbit.orbitalRadius,
+      inclinationRad,
+      raanRad,
+      Cesium.Math.toRadians(degree)
+    )
 
-    const longitude = Math.atan2(yEcef, xEcef)
-    const latitude = Math.atan2(zEcef, Math.sqrt(xEcef ** 2 + yEcef ** 2))
-
-    points.push(Cesium.Cartesian3.fromRadians(longitude, latitude, altitude))
+    points.push(convertEciToEcef(positionInEci, orbitElapsedSeconds))
   }
+
   return points
 }
+
 
 function focusSatellite(id: number) {
   const v = viewer.value
@@ -1176,11 +1325,13 @@ function buildScene(v: Cesium.Viewer) {
   const groundInstances = instanceStore.instancesForDisplay.filter(
     (item) => !item.type.toLowerCase().includes('satellite')
   )
+  const groundInstanceIdSet = new Set(groundInstances.map((item) => item.id))
 
   satellites.forEach((sat) => {
     const isGeo = (sat.alt || 0) > 30000000
     const isMeo = (sat.alt || 0) > 10000000 && (sat.alt || 0) <= 30000000
     const isAbnormal = sat.status === 'warning' || sat.status === 'danger' || sat.status === 'offline'
+    const isSelected = satelliteStore.selectedSatelliteId === sat.id
     const color = isAbnormal
       ? statusColor(sat.status)
       : isGeo
@@ -1188,6 +1339,11 @@ function buildScene(v: Cesium.Viewer) {
         : isMeo
           ? Cesium.Color.fromCssColorString('#ff9f43')
           : Cesium.Color.fromCssColorString('#2ecc71')
+    const orbitSampleStep = isAbnormal || isSelected ? 2 : ORBIT_POLYLINE_SEGMENT_DEGREES
+    const orbitLineCache = {
+      bucket: Number.NaN,
+      positions: [] as Cesium.Cartesian3[]
+    }
 
     v.entities.add({
       id: String(sat.id),
@@ -1204,7 +1360,7 @@ function buildScene(v: Cesium.Viewer) {
         disableDepthTestDistance: Number.POSITIVE_INFINITY
       },
       path: {
-        show: isAbnormal || satelliteStore.selectedSatelliteId === sat.id,
+        show: isAbnormal || isSelected,
         leadTime: 0,
         trailTime: isGeo ? 3600 : 1800,
         width: isAbnormal ? (isGeo ? 2.4 : 2) : 1.2,
@@ -1219,33 +1375,29 @@ function buildScene(v: Cesium.Viewer) {
         pixelOffset: new Cesium.Cartesian2(0, -10),
         fillColor: isAbnormal ? color.withAlpha(0.98) : Cesium.Color.WHITE.withAlpha(0.85),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        show: isAbnormal || satelliteStore.selectedSatelliteId === sat.id
+        show: isAbnormal || isSelected
       }
     })
-
-    if (isAbnormal) {
-      v.entities.add({
-        id: `sat-halo-${sat.instanceId}`,
-        position: new Cesium.CallbackPositionProperty(
-          () => getSatellitePosition(sat, v.clock.currentTime, startTime),
-          false
-        ),
-        ellipsoid: {
-          radii: new Cesium.Cartesian3(
-            isGeo ? 700000 : 240000,
-            isGeo ? 700000 : 240000,
-            isGeo ? 700000 : 240000
-          ),
-          material: color.withAlpha(sat.status === 'danger' ? 0.18 : 0.1),
-          outline: false
-        }
-      })
-    }
 
     v.entities.add({
       id: `orbit-${sat.instanceId}`,
       polyline: {
-        positions: makeOrbitPositions(sat.inclination || 0, sat.baseLon || 0, sat.alt || 500000),
+        positions: new Cesium.CallbackProperty(() => {
+          const orbitElapsedSeconds = getOrbitElapsedSeconds(v.clock.currentTime, startTime)
+          const refreshBucket = Math.floor(orbitElapsedSeconds / ORBIT_POLYLINE_REFRESH_SECONDS)
+
+          if (orbitLineCache.bucket !== refreshBucket || orbitLineCache.positions.length === 0) {
+            orbitLineCache.bucket = refreshBucket
+            orbitLineCache.positions = makeOrbitPositions(
+              sat,
+              v.clock.currentTime,
+              startTime,
+              orbitSampleStep
+            )
+          }
+
+          return orbitLineCache.positions
+        }, false),
         width: isAbnormal ? 1.5 : 0.8,
         material: color.withAlpha(isAbnormal ? 0.35 : 0.05)
       }
@@ -1291,91 +1443,192 @@ function buildScene(v: Cesium.Viewer) {
 
   const pathLinkSet = new Set(activePathLinkIds.value)
   const pathNodeSet = new Set(activePath.value)
-
-  linkStore.linksForDisplay.forEach((link) => {
-    const [startId, endId] = link.endpoints
-    const startSatellite = satellites.find((item) => item.instanceId === startId)
-    const endSatellite = satellites.find((item) => item.instanceId === endId)
-    const startGround = positionMap[startId]
-    const endGround = positionMap[endId]
-
-    const isOnPath = pathLinkSet.has(link.id)
-    const isUplink = link.type === 'ground-uplink'
-    const isUplinkHighlighted = isUplink && highlightUplinks.value && !isOnPath
-
-    const lineColor = isOnPath
-      ? Cesium.Color.fromCssColorString('#00f5ff')
-      : link.status === 'danger'
-        ? Cesium.Color.fromCssColorString('#ff6b6b')
-        : link.status === 'warning'
-          ? Cesium.Color.fromCssColorString('#ffd04b')
-          : isUplink
-            ? Cesium.Color.fromCssColorString('#ffb84d')
-            : link.enabled
-              ? Cesium.Color.fromCssColorString('#7dcfff')
-              : Cesium.Color.fromCssColorString('#6b7480')
-    const isAbnormalLink = link.status === 'danger' || link.status === 'warning' || !link.enabled
-
-
-    v.entities.add({
-      id: `link-${link.id}`,
-      polyline: {
-        positions: new Cesium.CallbackProperty(() => {
-          const positions: Cesium.Cartesian3[] = []
-
-          if (startSatellite) positions.push(getSatellitePosition(startSatellite, v.clock.currentTime, startTime))
-          else if (startGround) {
-            positions.push(Cesium.Cartesian3.fromDegrees(startGround.longitude, startGround.latitude, startGround.altitude))
-          }
-
-          if (endSatellite) positions.push(getSatellitePosition(endSatellite, v.clock.currentTime, startTime))
-          else if (endGround) {
-            positions.push(Cesium.Cartesian3.fromDegrees(endGround.longitude, endGround.latitude, endGround.altitude))
-          }
-
-          return positions
-        }, false),
-        width: isOnPath
-          ? 8
-          : isUplinkHighlighted
-            ? 5
-            : link.status === 'danger'
-              ? 3.8
-              : link.status === 'warning'
-                ? 3
-                : 1.5,
-        material: isOnPath
-          ? (new Cesium.PolylineGlowMaterialProperty({
-              glowPower: 0.55,
-              taperPower: 1.0,
-              color: lineColor.withAlpha(0.98)
-            }) as any)
-          : isUplinkHighlighted
-            ? (new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.4,
-                taperPower: 0.8,
-                color: lineColor.withAlpha(0.95)
-              }) as any)
-            : (new Cesium.PolylineGlowMaterialProperty({
-                glowPower: isAbnormalLink ? 0.32 : 0.15,
-                taperPower: 0.35,
-                color: lineColor.withAlpha(link.enabled ? (isAbnormalLink ? 0.95 : 0.68) : 0.55)
-              }) as any),
-
-        arcType: Cesium.ArcType.NONE
-      }
-    })
+  const satelliteByInstanceId = new Map(satellites.map((item) => [item.instanceId, item] as const))
+  const runtimeInstanceById = new Map(instanceStore.instances.map((item) => [item.instance_id, item] as const))
+  const dynamicSatellitePools: Record<OrbitBucket, Satellite[]> = {
+    leo: [],
+    meo: [],
+    geo: []
+  }
+  satellites.forEach((item) => {
+    dynamicSatellitePools[getOrbitBucket(item.alt || 0)].push(item)
   })
+  const satelliteAliasCache = new Map<string, Satellite | null>()
+  const inferEndpointOrbitBucket = (endpointId: string): OrbitBucket | null => {
+    const directSatellite = satelliteByInstanceId.get(endpointId)
+    if (directSatellite) return getOrbitBucket(directSatellite.alt || 0)
 
-  // 为路径上每个节点添加高亮 halo
+    const normalizedId = endpointId.toLowerCase()
+    const runtimeInstance = runtimeInstanceById.get(endpointId)
+    const runtimeType = `${runtimeInstance?.type || ''}`.toLowerCase()
+    const orbitHints = `${runtimeInstance?.extra?.orbit_layer || ''} ${runtimeInstance?.extra?.orbit || ''} ${runtimeInstance?.name || ''} ${endpointId}`.toLowerCase()
+    const looksLikeSatellite =
+      runtimeType.includes('satellite') ||
+      normalizedId.startsWith('sat-') ||
+      normalizedId.startsWith('geo-') ||
+      orbitHints.includes('leo') ||
+      orbitHints.includes('meo') ||
+      orbitHints.includes('geo')
+
+    if (!looksLikeSatellite) return null
+    if (orbitHints.includes('geo') || normalizedId.startsWith('geo-')) return 'geo'
+    if (orbitHints.includes('meo') || orbitHints.includes('medium')) return 'meo'
+    if (orbitHints.includes('leo') || orbitHints.includes('low') || normalizedId.startsWith('sat-')) {
+      return 'leo'
+    }
+
+    const altitude = positionMap[endpointId]?.altitude
+    if (typeof altitude === 'number' && Number.isFinite(altitude)) {
+      return getOrbitBucket(altitude)
+    }
+
+    return null
+  }
+  const resolveEndpointSatellite = (endpointId: string) => {
+    const directSatellite = satelliteByInstanceId.get(endpointId)
+    if (directSatellite) return directSatellite
+    if (satelliteAliasCache.has(endpointId)) return satelliteAliasCache.get(endpointId) ?? undefined
+
+    const orbitBucket = inferEndpointOrbitBucket(endpointId)
+    const pool = orbitBucket ? dynamicSatellitePools[orbitBucket] : []
+    let resolvedSatellite: Satellite | undefined
+
+    const sequenceIndex = getEndpointSequenceIndex(endpointId)
+    if (sequenceIndex !== null && pool.length > 0) {
+      const clampedIndex = Cesium.Math.clamp(sequenceIndex, 0, pool.length - 1)
+      resolvedSatellite = pool[clampedIndex]
+    }
+
+    if (!resolvedSatellite && pool.length > 0) {
+      const altitude = positionMap[endpointId]?.altitude
+      if (typeof altitude === 'number' && Number.isFinite(altitude)) {
+        resolvedSatellite = [...pool].sort(
+          (a, b) => Math.abs((a.alt || 0) - altitude) - Math.abs((b.alt || 0) - altitude)
+        )[0]
+      } else {
+        resolvedSatellite = pool[0]
+      }
+    }
+
+    satelliteAliasCache.set(endpointId, resolvedSatellite ?? null)
+    return resolvedSatellite
+  }
+  const resolveEndpointGround = (endpointId: string) => {
+    if (!groundInstanceIdSet.has(endpointId)) return undefined
+    const position = positionMap[endpointId]
+    if (!position) return undefined
+    return {
+      id: endpointId,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      altitude: position.altitude || 30
+    }
+  }
+  const resolveLinkEndpoints = (link: Pick<LinkDisplay, 'endpoints'>) => {
+    const [startId, endId] = link.endpoints
+    return {
+      startSatellite: resolveEndpointSatellite(startId),
+      endSatellite: resolveEndpointSatellite(endId),
+      startGround: resolveEndpointGround(startId),
+      endGround: resolveEndpointGround(endId)
+    }
+  }
+  const isRenderableResolvedLink = (link: LinkDisplay) => {
+    const { startSatellite, endSatellite, startGround, endGround } = resolveLinkEndpoints(link)
+    const hasStart = Boolean(startSatellite || startGround)
+    const hasEnd = Boolean(endSatellite || endGround)
+    return hasStart && hasEnd && Boolean(startSatellite || endSatellite)
+  }
+
+  getRouteLinks()
+    .filter((link) => shouldRenderCommunicationLink(link))
+    .filter((link) => isRenderableResolvedLink(link))
+    .forEach((link) => {
+      if (!pathLinkSet.has(link.id)) return
+
+      const { startSatellite, endSatellite, startGround, endGround } = resolveLinkEndpoints(link)
+      const isUplink = link.type === 'ground-uplink'
+      const lineColor = isUplink
+        ? Cesium.Color.fromCssColorString('#ff2d2d')
+        : Cesium.Color.fromCssColorString('#ffffff')
+      const lineWidth = isUplink ? GROUND_COMMUNICATION_WIDTH : SATELLITE_COMMUNICATION_WIDTH
+
+      const linkPositions = new Cesium.CallbackProperty(() => {
+        const positions: Cesium.Cartesian3[] = []
+
+        if (startSatellite) positions.push(getSatellitePosition(startSatellite, v.clock.currentTime, startTime))
+        else if (startGround) {
+          positions.push(
+            Cesium.Cartesian3.fromDegrees(
+              startGround.longitude,
+              startGround.latitude,
+              startGround.altitude || 30
+            )
+          )
+        }
+
+        if (endSatellite) positions.push(getSatellitePosition(endSatellite, v.clock.currentTime, startTime))
+        else if (endGround) {
+          positions.push(
+            Cesium.Cartesian3.fromDegrees(
+              endGround.longitude,
+              endGround.latitude,
+              endGround.altitude || 30
+            )
+          )
+        }
+
+        return positions
+      }, false)
+
+      v.entities.add({
+        id: `link-${link.id}`,
+        polyline: {
+          positions: linkPositions,
+          width: lineWidth,
+          material: new Cesium.PolylineGlowMaterialProperty({
+            glowPower: isUplink ? 0.18 : 0.12,
+            taperPower: 0.25,
+            color: lineColor.withAlpha(0.95)
+          }) as any,
+          arcType: Cesium.ArcType.NONE
+        }
+      })
+    })
+
+  if (activePath.value.length >= 4) {
+    const relayStart = satelliteByInstanceId.get(activePath.value[1])
+    const relayEnd = satelliteByInstanceId.get(activePath.value[2])
+
+    if (relayStart && relayEnd && pathLinkSet.has(`dynamic-isl-${relayStart.instanceId}-${relayEnd.instanceId}`)) {
+      v.entities.add({
+        id: `link-dynamic-isl-${relayStart.instanceId}-${relayEnd.instanceId}`,
+        polyline: {
+          positions: new Cesium.CallbackProperty(() => [
+            getSatellitePosition(relayStart, v.clock.currentTime, startTime),
+            getSatellitePosition(relayEnd, v.clock.currentTime, startTime)
+          ], false),
+          width: SATELLITE_COMMUNICATION_WIDTH,
+          material: new Cesium.PolylineGlowMaterialProperty({
+            glowPower: 0.12,
+            taperPower: 0.25,
+            color: Cesium.Color.fromCssColorString('#ffffff').withAlpha(0.95)
+          }) as any,
+          arcType: Cesium.ArcType.NONE
+        }
+      })
+    }
+  }
+
   if (pathNodeSet.size > 0) {
     activePath.value.forEach((nodeId, idx) => {
-      const sat = satellites.find((s) => s.instanceId === nodeId)
-      const ground = positionMap[nodeId]
+      const sat = resolveEndpointSatellite(nodeId)
+      const ground = groundInstanceIdSet.has(nodeId) ? positionMap[nodeId] : undefined
+      const nodeInstance = instanceStore.instancesForDisplay.find((item) => item.id === nodeId)
       const isEndpoint = idx === 0 || idx === activePath.value.length - 1
       const haloColor = isEndpoint
-        ? Cesium.Color.fromCssColorString('#00ffd1')
-        : Cesium.Color.fromCssColorString('#00f5ff')
+        ? Cesium.Color.fromCssColorString('#ff2d2d')
+        : Cesium.Color.fromCssColorString('#ffffff')
       if (sat) {
         v.entities.add({
           id: `path-halo-${nodeId}`,
@@ -1384,14 +1637,14 @@ function buildScene(v: Cesium.Viewer) {
             false
           ),
           point: {
-            pixelSize: 18,
-            color: haloColor.withAlpha(0.0),
+            pixelSize: 16,
+            color: haloColor.withAlpha(0.15),
             outlineColor: haloColor.withAlpha(0.95),
             outlineWidth: 3,
             disableDepthTestDistance: Number.POSITIVE_INFINITY
           },
           label: {
-            text: `[第${idx + 1}跳] ${sat.name}`,
+            text: nodeInstance?.name || sat.name,
             font: '600 12px "Microsoft YaHei", sans-serif',
             fillColor: haloColor,
             pixelOffset: new Cesium.Cartesian2(0, 18),
@@ -1399,18 +1652,18 @@ function buildScene(v: Cesium.Viewer) {
           }
         })
       } else if (ground) {
-        const cart = Cesium.Cartesian3.fromDegrees(ground.longitude, ground.latitude, ground.altitude || 30)
         v.entities.add({
           id: `path-halo-${nodeId}`,
-          position: cart,
-          ellipsoid: {
-            radii: new Cesium.Cartesian3(220000, 220000, 220000),
-            material: haloColor.withAlpha(0.18),
-            outline: true,
-            outlineColor: haloColor.withAlpha(0.9)
+          position: Cesium.Cartesian3.fromDegrees(ground.longitude, ground.latitude, ground.altitude || 30),
+          point: {
+            pixelSize: 14,
+            color: haloColor.withAlpha(0.18),
+            outlineColor: haloColor.withAlpha(0.92),
+            outlineWidth: 2,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
           },
           label: {
-            text: idx === 0 ? `源端: ${nodeId}` : `目的: ${nodeId}`,
+            text: isEndpoint ? `${idx === 0 ? '源端' : '目的'}: ${nodeInstance?.name || nodeId}` : nodeId,
             font: '700 13px "Microsoft YaHei", sans-serif',
             fillColor: haloColor,
             pixelOffset: new Cesium.Cartesian2(0, -42),
@@ -1466,6 +1719,13 @@ onMounted(() => {
         new Cesium.HeadingPitchRange(Cesium.Math.toRadians(0), Cesium.Math.toRadians(-90), 18500000)
       )
       v.camera.lookAtTransform(Cesium.Matrix4.IDENTITY)
+      const simulationStart = Cesium.JulianDate.now()
+      v.scene.requestRenderMode = false
+      v.clock.startTime = Cesium.JulianDate.clone(simulationStart)
+      v.clock.currentTime = Cesium.JulianDate.clone(simulationStart)
+      v.clock.stopTime = Cesium.JulianDate.addDays(simulationStart, 3650, new Cesium.JulianDate())
+      v.clock.clockStep = Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
+      v.clock.clockRange = Cesium.ClockRange.UNBOUNDED
       v.clock.shouldAnimate = true
       v.clock.multiplier = 1
 
@@ -1483,21 +1743,30 @@ onMounted(() => {
 
       v.camera.moveStart.addEventListener(() => {
         if (interactionTimeout) clearTimeout(interactionTimeout)
-        sceneMode.value = '手动控制'
-        if (!v.trackedEntity && !isPaused.value) v.clock.shouldAnimate = false
+        if (!v.trackedEntity) {
+          sceneMode.value = '手动控制'
+        }
+        if (!isPaused.value) {
+          v.clock.shouldAnimate = true
+        }
       })
 
       v.camera.moveEnd.addEventListener(() => {
         if (interactionTimeout) clearTimeout(interactionTimeout)
         interactionTimeout = window.setTimeout(() => {
-          if (!v.trackedEntity && !isPaused.value) {
+          if (v.trackedEntity) {
+            sceneMode.value = '聚焦查看'
+            return
+          }
+          if (!isPaused.value) {
             v.clock.shouldAnimate = true
             sceneMode.value = '自动巡航'
           }
-        }, 2200)
+        }, INTERACTION_MODE_RESET_DELAY_MS)
       })
 
       buildScene(v)
+      showDemoPath()
 
       watch(
         () => [
@@ -1506,7 +1775,13 @@ onMounted(() => {
           instanceStore.instancesForDisplay,
           linkStore.linksForDisplay
         ],
-        () => buildScene(v),
+        () => {
+          if (isCommunicationLoopRunning.value && canRoute.value) {
+            computeAndShowPath()
+          } else {
+            buildScene(v)
+          }
+        },
         { deep: true }
       )
     } catch (error: any) {
@@ -1540,6 +1815,7 @@ watch(
 
 onBeforeUnmount(() => {
   if (interactionTimeout) clearTimeout(interactionTimeout)
+  stopCommunicationLoop()
   if (selectionHandler) {
     selectionHandler.destroy()
     selectionHandler = null
