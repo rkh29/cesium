@@ -176,17 +176,19 @@
           <el-button
             size="small"
             plain
-            :disabled="!isCommunicationLoopRunning && activePathLinkIds.length === 0"
+            :disabled="activePathLinkIds.length === 0"
             @click="pauseCommunicationLoop"
           >
             暂停
           </el-button>
         </div>
-        <div v-if="pathHopsLabel" class="comm-path-info">
-          <span>基站对: {{ pathHopsLabel }}</span>
-          <span>链路样式: 星地红色粗线 · 星间白色粗线</span>
+        <div class="comm-path-msg" :class="{ 'has-route': !!pathHopsLabel, 'has-error': !!pathError && !pathHopsLabel }">
+          <template v-if="pathHopsLabel">
+            <span>基站对: {{ pathHopsLabel }}</span>
+            <span>链路样式: 星地红色粗线 · 星间白色粗线</span>
+          </template>
+          <template v-else-if="pathError">{{ pathError }}</template>
         </div>
-        <div v-else-if="pathError" class="comm-path-error">{{ pathError }}</div>
       </div>
     </transition>
 
@@ -502,7 +504,6 @@ const activePath = ref<string[]>([]) // 节点 instance_id 序列：源 -> 中�
 const activePathLinkIds = ref<string[]>([]) // 路径上对应的 link.id 顺序集合
 const pathError = ref<string>('')
 const routeCycleIndex = ref(0)
-const isCommunicationLoopRunning = ref(false)
 
 const groundStationOptions = computed(() =>
   instanceStore.instancesForDisplay.filter((item) =>
@@ -667,12 +668,10 @@ function computeAndShowPath() {
     activePath.value = []
     activePathLinkIds.value = []
     pathError.value = '当前没有卫星同时满足两端通信条件'
-    if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
     return false
   }
   activePath.value = route.nodes
   activePathLinkIds.value = route.linkIds
-  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
   return true
 }
 
@@ -700,7 +699,6 @@ function clearActivePath() {
   activePath.value = []
   activePathLinkIds.value = []
   pathError.value = ''
-  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
 }
 
 function pauseCommunicationLoop() {
@@ -713,25 +711,19 @@ function stopCommunicationLoop() {
     window.clearTimeout(communicationLoopTimer)
     communicationLoopTimer = null
   }
-  isCommunicationLoopRunning.value = false
 }
 
 function scheduleNextCommunicationCycle(delayMs = COMMUNICATION_IDLE_MS) {
-  stopCommunicationLoop()
-
   if (!canRoute.value) {
     clearActivePath()
     pathError.value = '地面站不足，无法演示'
     return
   }
-
-  isCommunicationLoopRunning.value = true
   communicationLoopTimer = window.setTimeout(() => {
     const hasRoute = computeAndShowPath()
     communicationLoopTimer = window.setTimeout(
       () => {
         clearActivePath()
-        if (!isCommunicationLoopRunning.value) return
         scheduleNextCommunicationCycle()
       },
       hasRoute ? COMMUNICATION_ACTIVE_MS : COMMUNICATION_IDLE_MS
@@ -1328,8 +1320,9 @@ function buildSceneSignature() {
     .join('|')
 
   const selected = satelliteStore.selectedSatelliteId ?? ''
+  const path = activePathLinkIds.value.join(',')
 
-  return `${sats}__${grounds}__${links}__${selected}`
+  return `${sats}__${grounds}__${links}__${selected}__${path}`
 }
 
 function buildScene(v: Cesium.Viewer) {
@@ -1786,19 +1779,9 @@ onMounted(() => {
       buildScene(v)
       showDemoPath()
 
-      // 仅当影响场景结构/外观的字段变化时才重建场景。
-      // cpu/temp/bps 等高频数值刷新不参与签名，避免 buildScene 被反复触发
-      // 导致实体（含屏幕标签）销毁重建产生的「抽动」。位置移动由
-      // CallbackPositionProperty 每帧平滑求值，无需重建。
       watch(
         () => buildSceneSignature(),
-        () => {
-          if (isCommunicationLoopRunning.value && canRoute.value) {
-            computeAndShowPath()
-          } else {
-            buildScene(v)
-          }
-        }
+        () => buildScene(v)
       )
     } catch (error: any) {
       const errorMessage = error?.message || error?.toString() || 'unknown error'
@@ -2070,23 +2053,27 @@ onBeforeUnmount(() => {
   gap: 6px;
   flex-wrap: wrap;
 }
-.comm-path-info {
+.comm-path-msg {
   font-size: 12px;
-  color: #00f5ff;
-  background: rgba(0, 245, 255, 0.08);
   padding: 8px 10px;
   border-radius: 6px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   word-break: break-all;
+  height: 3.2em;
+  justify-content: center;
+  box-sizing: border-box;
+  color: #8a8f98;
+  background: transparent;
 }
-.comm-path-error {
-  font-size: 12px;
+.comm-path-msg.has-route {
+  color: #00f5ff;
+  background: rgba(0, 245, 255, 0.08);
+}
+.comm-path-msg.has-error {
   color: #ff8e8e;
   background: rgba(255, 107, 107, 0.1);
-  padding: 8px 10px;
-  border-radius: 6px;
 }
 .floating-path-btn {
   position: absolute !important;
