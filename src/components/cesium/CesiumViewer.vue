@@ -443,10 +443,6 @@ const DEMO_GROUND_STATIONS: GroundPreset[] = [
 const CUSTOM_GROUND_STORAGE_KEY = 'custom-ground-stations-v1'
 
 const satelliteCount = computed(() => satelliteStore.satellites.length)
-const focusedSatelliteName = computed(() => satelliteStore.selectedSatellite?.name || '未选择')
-const focusedSatelliteStatus = computed(() =>
-  satelliteStore.selectedSatellite ? getStatusLabel(satelliteStore.selectedSatellite.status) : '全局自由视角'
-)
 const sceneModeHint = computed(() => {
   if (sceneMode.value === '聚焦查看') {
     return `已跟踪目标 · 轨道演示 ×${ORBIT_DEMO_SPEED}`
@@ -1314,6 +1310,28 @@ function focusSatelliteFromPanel(id: number) {
   focusSatellite(id)
 }
 
+function buildSceneSignature() {
+  const sats = satelliteStore.satellites
+    .map((s) => `${s.id}:${s.name}:${s.status}:${s.alt}:${s.inclination}:${s.baseLon}:${s.phase}:${s.instanceId}`)
+    .join('|')
+
+  const grounds = instanceStore.instancesForDisplay
+    .filter((item) => !item.type.toLowerCase().includes('satellite'))
+    .map((item) => {
+      const pos = satelliteStore.positions[item.id]
+      return `${item.id}:${item.name}:${item.type}:${pos?.latitude ?? ''}:${pos?.longitude ?? ''}`
+    })
+    .join('|')
+
+  const links = linkStore.linksForDisplay
+    .map((l) => `${l.id}:${l.type}:${l.status}:${l.enabled}:${l.endpoints[0]}>${l.endpoints[1]}`)
+    .join('|')
+
+  const selected = satelliteStore.selectedSatelliteId ?? ''
+
+  return `${sats}__${grounds}__${links}__${selected}`
+}
+
 function buildScene(v: Cesium.Viewer) {
   if (!v || !v.entities || v.isDestroyed()) return
 
@@ -1768,21 +1786,19 @@ onMounted(() => {
       buildScene(v)
       showDemoPath()
 
+      // 仅当影响场景结构/外观的字段变化时才重建场景。
+      // cpu/temp/bps 等高频数值刷新不参与签名，避免 buildScene 被反复触发
+      // 导致实体（含屏幕标签）销毁重建产生的「抽动」。位置移动由
+      // CallbackPositionProperty 每帧平滑求值，无需重建。
       watch(
-        () => [
-          satelliteStore.satellites,
-          satelliteStore.positions,
-          instanceStore.instancesForDisplay,
-          linkStore.linksForDisplay
-        ],
+        () => buildSceneSignature(),
         () => {
           if (isCommunicationLoopRunning.value && canRoute.value) {
             computeAndShowPath()
           } else {
             buildScene(v)
           }
-        },
-        { deep: true }
+        }
       )
     } catch (error: any) {
       const errorMessage = error?.message || error?.toString() || 'unknown error'
