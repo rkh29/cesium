@@ -21,22 +21,29 @@ export interface Satellite {
 
 function generateArchitecture(): Satellite[] {
   const sats: Satellite[] = []
-  const orbitPhases = [0, 45, 90, 135, 180, 225, 270, 315]
+  // 8 条平行赤道的水平圆环（纬度圈）：南北半球各 4 条，每条 6 颗，共 48 颗。
+  // inclination 字段在此复用为「圈所在纬度」，phase 为卫星在圈上的经度相位。
+  const RING_LATITUDES = [15, 30, 45, 60, -15, -30, -45, -60]
+  const SATS_PER_RING = 6
 
-  orbitPhases.forEach((phase, index) => {
-    sats.push({
-      id: index + 1,
-      name: `演示卫星-${index + 1}`,
-      code: `DEMO-LEO-${index + 1}`,
-      instanceId: `sat-demo-${index + 1}`,
-      status: 'normal',
-      alt: 550000,
-      inclination: 53,
-      baseLon: 105,
-      phase,
-      cpu: 20,
-      temp: 35
-    })
+  RING_LATITUDES.forEach((latitude, ring) => {
+    for (let slot = 0; slot < SATS_PER_RING; slot += 1) {
+      const index = ring * SATS_PER_RING + slot
+      const phase = (360 / SATS_PER_RING) * slot
+      sats.push({
+        id: index + 1,
+        name: `演示卫星-${index + 1}`,
+        code: `DEMO-LEO-${index + 1}`,
+        instanceId: `sat-demo-${index + 1}`,
+        status: 'normal',
+        alt: 550000,
+        inclination: latitude,
+        baseLon: 0,
+        phase,
+        cpu: 20,
+        temp: 35
+      })
+    }
   })
 
   return sats
