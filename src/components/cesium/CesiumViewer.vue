@@ -2,7 +2,7 @@
   <div id="cesium-container" ref="cesiumContainer">
     <div v-if="showOverlay" class="cinematic-overlay">
       <div class="overlay-top">
-        <div class="theater-badge">卫星群视图</div>
+        <div class="theater-badge">卫星可视编辑</div>
         <div class="legend">
           <span><i class="dot leo"></i>低轨卫星</span>
           <span><i class="dot meo"></i>中轨卫星</span>
@@ -134,9 +134,10 @@
      </el-button>
 
      <!-- 通信路径控制面板 -->
-    <transition name="fade-panel">
+    <transition name="fade-panel" mode="out-in">
       <div
         v-if="showOverlay && showPathPanel"
+        key="panel"
         class="comm-path-panel"
         @wheel.stop
         @mousedown.stop
@@ -190,17 +191,17 @@
           <template v-else-if="pathError">{{ pathError }}</template>
         </div>
       </div>
+      <el-button
+        v-else-if="showOverlay"
+        key="btn"
+        class="floating-path-btn"
+        type="success"
+        plain
+        @click="showPathPanel = true"
+      >
+        通信链路
+      </el-button>
     </transition>
-
-    <el-button
-      v-if="showOverlay && !showPathPanel"
-      class="floating-path-btn"
-      type="success"
-      plain
-      @click="showPathPanel = true"
-    >
-      通信链路
-    </el-button>
 
     <transition name="fade-panel">
       <div v-if="isSatEditMode" class="edit-panel" @wheel.stop @mousedown.stop @touchmove.stop>
@@ -2018,9 +2019,9 @@ onBeforeUnmount(() => {
 .comm-path-panel {
   position: absolute;
   left: 24px;
-  bottom: 140px;
+  bottom: 200px;
   z-index: 13;
-  width: 320px;
+  width: 270px;
   border-radius: 10px;
   padding: 14px 16px;
   border: 1px solid rgba(0, 245, 255, 0.25);
@@ -2078,7 +2079,7 @@ onBeforeUnmount(() => {
 .floating-path-btn {
   position: absolute !important;
   left: 24px;
-  bottom: 100px;
+  bottom: 160px;
   z-index: 12;
   pointer-events: auto;
   background: rgba(0, 245, 255, 0.08) !important;

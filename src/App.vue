@@ -3,11 +3,8 @@ import { computed, ref, onMounted } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import {
   Fold,
-  Grid,
-  Link,
   Monitor,
   Odometer,
-  Operation,
   Position,
   Setting,
   User
@@ -44,19 +41,18 @@ const groups: NavGroup[] = [
     icon: Monitor,
     children: [
       { path: '/', label: '仪表盘', icon: Odometer },
-      { path: '/earth', label: '卫星群视图', icon: Position },
-      { path: '/editor', label: '卫星可视编辑', icon: Operation }
+      { path: '/earth', label: '卫星可视编辑', icon: Position }
     ]
   },
-  {
-    id: 'topology',
-    label: '节点与链路',
-    icon: Grid,
-    children: [
-      { path: '/instances', label: '节点实例', icon: Grid },
-      { path: '/links', label: '链路拓扑', icon: Link }
-    ]
-  }
+  // {
+  //   id: 'topology',
+  //   label: '节点与链路',
+  //   icon: Grid,
+  //   children: [
+  //     { path: '/instances', label: '节点实例', icon: Grid },
+  //     { path: '/links', label: '链路拓扑', icon: Link }
+  //   ]
+  // }
 ]
 
 onMounted(() => {

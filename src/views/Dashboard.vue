@@ -7,7 +7,7 @@
       <div class="header-right">
         <el-button @click="navigateToEarth" size="large" class="nav-btn">
           <el-icon class="mr-1"><Position /></el-icon>
-          进入三维卫星群视图
+          进入卫星可视编辑
         </el-button>
       </div>
     </div>
