@@ -4,12 +4,10 @@
       <div class="overlay-top">
         <div class="theater-badge">卫星可视编辑</div>
         <div class="legend">
-          <span><i class="dot leo"></i>低轨卫星</span>
-          <span><i class="dot meo"></i>中轨卫星</span>
-          <span><i class="dot geo"></i>高轨卫星</span>
-          <span><i class="dot ground"></i>地面站</span>
-          <span><i class="dot path"></i>星间通信</span>
-          <span><i class="dot uplink"></i>星地通信</span>
+          <span><img :src="satelliteIcon" class="legend-icon" />卫星</span>
+          <span
+            ><img :src="groundStationIcon" class="legend-icon" />地面站</span
+          >
         </div>
       </div>
 
@@ -58,7 +56,9 @@
               <span>{{ sat.instanceId }}</span>
             </div>
             <div class="status-chip-meta">
-              <span class="status-badge" :class="sat.status">{{ getStatusLabel(sat.status) }}</span>
+              <span class="status-badge" :class="sat.status">{{
+                getStatusLabel(sat.status)
+              }}</span>
               <span>{{ sat.cpu.toFixed(1) }}%</span>
             </div>
           </button>
@@ -73,12 +73,18 @@
             <strong>{{ selectedSatelliteCard.name }}</strong>
             <span>{{ selectedSatelliteCard.instanceId }}</span>
           </div>
-          <el-button class="collapse-btn" plain @click="clearSelection">收起状态</el-button>
+          <el-button class="collapse-btn" plain @click="clearSelection"
+            >收起状态</el-button
+          >
         </div>
         <div class="float-card-grid">
           <div class="float-item">
             <label>状态</label>
-            <strong class="detail-status" :class="selectedSatelliteCard.status">{{ getStatusLabel(selectedSatelliteCard.status) }}</strong>
+            <strong
+              class="detail-status"
+              :class="selectedSatelliteCard.status"
+              >{{ getStatusLabel(selectedSatelliteCard.status) }}</strong
+            >
           </div>
           <div class="float-item">
             <label>CPU</label>
@@ -90,7 +96,12 @@
           </div>
           <div class="float-item">
             <label>高度</label>
-            <strong>{{ Math.round((selectedSatelliteCard.alt || 0) / 1000) }} km</strong>
+            <strong
+              >{{
+                Math.round((selectedSatelliteCard.alt || 0) / 1000)
+              }}
+              km</strong
+            >
           </div>
           <div v-if="selectedOrbitMetrics" class="float-item">
             <label>閫熷害</label>
@@ -98,42 +109,69 @@
           </div>
           <div v-if="selectedOrbitMetrics" class="float-item">
             <label>鍛ㄦ湡</label>
-            <strong>{{ selectedOrbitMetrics.periodMinutes.toFixed(1) }} min</strong>
+            <strong
+              >{{ selectedOrbitMetrics.periodMinutes.toFixed(1) }} min</strong
+            >
           </div>
         </div>
-        <div v-if="selectedSatelliteCard.status !== 'normal'" class="float-item anomaly-box" style="margin-top: 10px; background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.2);">
+        <div
+          v-if="selectedSatelliteCard.status !== 'normal'"
+          class="float-item anomaly-box"
+          style="
+            margin-top: 10px;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+          "
+        >
           <label style="color: #ff8c8c">异常情况</label>
-          <strong style="color: #fff; font-size: 13px; font-weight: normal; margin-top: 4px;">
-            {{ selectedSatelliteCard.status === 'danger' ? '严重故障：链路断开或组件离线' : '告警：性能指标超限' }}
+          <strong
+            style="
+              color: #fff;
+              font-size: 13px;
+              font-weight: normal;
+              margin-top: 4px;
+            "
+          >
+            {{
+              selectedSatelliteCard.status === "danger"
+                ? "严重故障：链路断开或组件离线"
+                : "告警：性能指标超限"
+            }}
           </strong>
         </div>
-        <div style="margin-top: 12px; display: flex; gap: 8px;">
-           <el-button type="primary" size="small" style="flex: 1;" @click="openEditSatDialog(selectedSatelliteCard)">编辑此卫星</el-button>
+        <div style="margin-top: 12px; display: flex; gap: 8px">
+          <el-button
+            type="primary"
+            size="small"
+            style="flex: 1"
+            @click="openEditSatDialog(selectedSatelliteCard)"
+            >编辑此卫星</el-button
+          >
         </div>
       </div>
     </transition>
 
-    <el-button 
-      v-if="showOverlay && !isSatEditMode && !selectedSatelliteCard" 
-      class="floating-sat-btn" 
-      type="primary" 
+    <el-button
+      v-if="showOverlay && !isSatEditMode && !selectedSatelliteCard"
+      class="floating-sat-btn"
+      type="primary"
       plain
       @click="isSatEditMode = true"
     >
       编辑卫星菜单
-     </el-button>
+    </el-button>
 
-     <el-button 
-       v-if="showOverlay && !isGroundEditMode && !selectedSatelliteCard" 
-       class="floating-gs-btn" 
-       type="success" 
-       plain
-       @click="isGroundEditMode = true"
-     >
-       编辑地面站菜单
-     </el-button>
+    <el-button
+      v-if="showOverlay && !isGroundEditMode && !selectedSatelliteCard"
+      class="floating-gs-btn"
+      type="success"
+      plain
+      @click="isGroundEditMode = true"
+    >
+      编辑地面站菜单
+    </el-button>
 
-     <!-- 通信路径控制面板 -->
+    <!-- 通信路径控制面板 -->
     <transition name="fade-panel" mode="out-in">
       <div
         v-if="showOverlay && showPathPanel"
@@ -145,11 +183,18 @@
       >
         <div class="comm-path-head">
           <strong>通信传输链路</strong>
-          <el-button size="small" plain @click="showPathPanel = false">收起</el-button>
+          <el-button size="small" plain @click="showPathPanel = false"
+            >收起</el-button
+          >
         </div>
         <div class="comm-path-row">
           <label>源端</label>
-          <el-select v-model="pathSourceId" size="small" placeholder="选择地面站" style="width: 100%">
+          <el-select
+            v-model="pathSourceId"
+            size="small"
+            placeholder="选择地面站"
+            style="width: 100%"
+          >
             <el-option
               v-for="g in groundStationOptions"
               :key="g.id"
@@ -160,7 +205,12 @@
         </div>
         <div class="comm-path-row">
           <label>目的端</label>
-          <el-select v-model="pathTargetId" size="small" placeholder="选择地面站" style="width: 100%">
+          <el-select
+            v-model="pathTargetId"
+            size="small"
+            placeholder="选择地面站"
+            style="width: 100%"
+          >
             <el-option
               v-for="g in groundStationOptions"
               :key="g.id"
@@ -170,7 +220,12 @@
           </el-select>
         </div>
         <div class="comm-path-actions">
-          <el-button type="primary" size="small" :disabled="!canRoute" @click="applySelectedPath">
+          <el-button
+            type="primary"
+            size="small"
+            :disabled="!canRoute"
+            @click="applySelectedPath"
+          >
             应用基站对
           </el-button>
           <el-button size="small" @click="showDemoPath">默认演示</el-button>
@@ -183,7 +238,13 @@
             暂停
           </el-button>
         </div>
-        <div class="comm-path-msg" :class="{ 'has-route': !!pathHopsLabel, 'has-error': !!pathError && !pathHopsLabel }">
+        <div
+          class="comm-path-msg"
+          :class="{
+            'has-route': !!pathHopsLabel,
+            'has-error': !!pathError && !pathHopsLabel,
+          }"
+        >
           <template v-if="pathHopsLabel">
             <span>基站对: {{ pathHopsLabel }}</span>
             <span>链路样式: 星地红色粗线 · 星间白色粗线</span>
@@ -204,44 +265,95 @@
     </transition>
 
     <transition name="fade-panel">
-      <div v-if="isSatEditMode" class="edit-panel" @wheel.stop @mousedown.stop @touchmove.stop>
+      <div
+        v-if="isSatEditMode"
+        class="edit-panel"
+        @wheel.stop
+        @mousedown.stop
+        @touchmove.stop
+      >
         <div class="edit-panel-head">
           <strong>卫星编辑</strong>
-          <el-button size="small" plain @click="isSatEditMode = false">关闭</el-button>
+          <el-button size="small" plain @click="isSatEditMode = false"
+            >关闭</el-button
+          >
         </div>
-        <div style="margin-bottom: 12px;">
-          <el-button type="primary" size="small" style="width: 100%;" @click="openAddSatDialog">
+        <div style="margin-bottom: 12px">
+          <el-button
+            type="primary"
+            size="small"
+            style="width: 100%"
+            @click="openAddSatDialog"
+          >
             + 添加自定义卫星
           </el-button>
         </div>
         <div class="edit-panel-list">
-          <div v-for="sat in satelliteStore.satellites" :key="sat.id" class="edit-panel-item">
+          <div
+            v-for="sat in satelliteStore.satellites"
+            :key="sat.id"
+            class="edit-panel-item"
+          >
             <div class="edit-panel-info">
               <strong>{{ sat.name }}</strong>
-              <span class="status-badge" :class="sat.status" style="transform: scale(0.8); transform-origin: left center;">{{ getStatusLabel(sat.status) }}</span>
+              <span
+                class="status-badge"
+                :class="sat.status"
+                style="transform: scale(0.8); transform-origin: left center"
+                >{{ getStatusLabel(sat.status) }}</span
+              >
             </div>
             <div class="edit-panel-actions">
-              <el-button size="small" link type="primary" @click="openEditSatDialog(sat)">编辑</el-button>
-              <el-button size="small" link type="danger" @click="deleteSat(sat.id)">删除</el-button>
+              <el-button
+                size="small"
+                link
+                type="primary"
+                @click="openEditSatDialog(sat)"
+                >编辑</el-button
+              >
+              <el-button
+                size="small"
+                link
+                type="danger"
+                @click="deleteSat(sat.id)"
+                >删除</el-button
+              >
             </div>
           </div>
         </div>
       </div>
     </transition>
 
-    <el-dialog v-model="showSatDialog" :title="satEditForm.id ? '编辑卫星' : '添加卫星'" width="400px" append-to-body>
+    <el-dialog
+      v-model="showSatDialog"
+      :title="satEditForm.id ? '编辑卫星' : '添加卫星'"
+      width="400px"
+      append-to-body
+    >
       <el-form :model="satEditForm" label-width="80px">
         <el-form-item label="名称">
           <el-input v-model="satEditForm.name" />
         </el-form-item>
         <el-form-item label="高度 (m)">
-          <el-input-number v-model="satEditForm.alt" :step="1000" style="width: 100%" />
+          <el-input-number
+            v-model="satEditForm.alt"
+            :step="1000"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="倾角 (°)">
-          <el-input-number v-model="satEditForm.inclination" :step="1" style="width: 100%" />
+          <el-input-number
+            v-model="satEditForm.inclination"
+            :step="1"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="基础经度">
-          <el-input-number v-model="satEditForm.baseLon" :step="1" style="width: 100%" />
+          <el-input-number
+            v-model="satEditForm.baseLon"
+            :step="1"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="satEditForm.status" style="width: 100%">
@@ -259,13 +371,24 @@
     </el-dialog>
 
     <transition name="fade-panel">
-      <div v-if="isGroundEditMode" class="edit-panel" @wheel.stop @mousedown.stop @touchmove.stop>
+      <div
+        v-if="isGroundEditMode"
+        class="edit-panel"
+        @wheel.stop
+        @mousedown.stop
+        @touchmove.stop
+      >
         <div class="edit-panel-head">
           <div class="ground-panel-headline">
             <strong>地面站管理</strong>
-            <span>共 {{ groundStations.length }} 个 · 自定义 {{ customGroundStations.length }} 个</span>
+            <span
+              >共 {{ groundStations.length }} 个 · 自定义
+              {{ customGroundStations.length }} 个</span
+            >
           </div>
-          <el-button size="small" plain @click="isGroundEditMode = false">关闭</el-button>
+          <el-button size="small" plain @click="isGroundEditMode = false"
+            >关闭</el-button
+          >
         </div>
 
         <div class="ground-tools">
@@ -307,7 +430,12 @@
             </div>
           </div>
 
-          <el-button type="success" size="small" style="width: 100%;" @click="openAddGsDialog">
+          <el-button
+            type="success"
+            size="small"
+            style="width: 100%"
+            @click="openAddGsDialog"
+          >
             + 手动添加地面站
           </el-button>
 
@@ -317,21 +445,44 @@
         </div>
 
         <div class="edit-panel-list">
-          <div v-for="gs in groundStations" :key="gs.id" class="edit-panel-item">
+          <div
+            v-for="gs in groundStations"
+            :key="gs.id"
+            class="edit-panel-item"
+          >
             <div class="edit-panel-info">
               <strong>{{ gs.name }}</strong>
               <div class="ground-panel-meta">
-                <span>{{ gs.latitude.toFixed(2) }}°, {{ gs.longitude.toFixed(2) }}°</span>
-                <span v-if="gs.custom" class="ground-badge" :class="gs.preset ? 'preset' : 'custom'">
-                  {{ gs.preset ? '预设导入' : '手动添加' }}
+                <span
+                  >{{ gs.latitude.toFixed(2) }}°,
+                  {{ gs.longitude.toFixed(2) }}°</span
+                >
+                <span
+                  v-if="gs.custom"
+                  class="ground-badge"
+                  :class="gs.preset ? 'preset' : 'custom'"
+                >
+                  {{ gs.preset ? "预设导入" : "手动添加" }}
                 </span>
                 <span v-else class="ground-badge system">系统内置</span>
               </div>
             </div>
             <div class="edit-panel-actions">
               <template v-if="gs.custom">
-                <el-button size="small" link type="primary" @click="openEditGsDialog(gs)">编辑</el-button>
-                <el-button size="small" link type="danger" @click="deleteGs(gs.id)">删除</el-button>
+                <el-button
+                  size="small"
+                  link
+                  type="primary"
+                  @click="openEditGsDialog(gs)"
+                  >编辑</el-button
+                >
+                <el-button
+                  size="small"
+                  link
+                  type="danger"
+                  @click="deleteGs(gs.id)"
+                  >删除</el-button
+                >
               </template>
               <span v-else class="ground-action-hint">只读</span>
             </div>
@@ -340,16 +491,33 @@
       </div>
     </transition>
 
-    <el-dialog v-model="showGsDialog" :title="gsEditForm.id ? '编辑自定义地面站' : '手动添加地面站'" width="400px" append-to-body>
+    <el-dialog
+      v-model="showGsDialog"
+      :title="gsEditForm.id ? '编辑自定义地面站' : '手动添加地面站'"
+      width="400px"
+      append-to-body
+    >
       <el-form :model="gsEditForm" label-width="80px">
         <el-form-item label="名称">
           <el-input v-model="gsEditForm.name" />
         </el-form-item>
         <el-form-item label="纬度">
-          <el-input-number v-model="gsEditForm.latitude" :min="-90" :max="90" :step="0.1" style="width: 100%" />
+          <el-input-number
+            v-model="gsEditForm.latitude"
+            :min="-90"
+            :max="90"
+            :step="0.1"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="经度">
-          <el-input-number v-model="gsEditForm.longitude" :min="-180" :max="180" :step="0.1" style="width: 100%" />
+          <el-input-number
+            v-model="gsEditForm.longitude"
+            :min="-180"
+            :max="180"
+            :step="0.1"
+            style="width: 100%"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -363,7 +531,8 @@
         <div class="placeholder-icon">3D</div>
         <div class="placeholder-title">三维场景暂不可用</div>
         <div class="placeholder-message">
-          当前环境没有可用的 WebGL，系统已切换到降级展示模式，其余功能仍可继续使用。
+          当前环境没有可用的
+          WebGL，系统已切换到降级展示模式，其余功能仍可继续使用。
         </div>
       </div>
     </div>
@@ -371,221 +540,242 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import * as Cesium from 'cesium'
-import { ElMessage } from 'element-plus'
-import 'cesium/Build/Cesium/Widgets/widgets.css'
-import { useCesium } from '../../composables/useCesium'
-import type { Instance, Link } from '../../api/types'
-import { useInstanceStore } from '../../stores/instance'
-import { useLinkStore, type LinkDisplay } from '../../stores/link'
-import { useSatelliteStore, type Satellite } from '../../stores/satellite'
-import { useUIStore } from '../../stores/ui'
-import satelliteIcon from '../../assets/satellite-icon.svg'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import * as Cesium from "cesium";
+import { ElMessage } from "element-plus";
+import "cesium/Build/Cesium/Widgets/widgets.css";
+import { useCesium } from "../../composables/useCesium";
+import type { Instance, Link } from "../../api/types";
+import { useInstanceStore } from "../../stores/instance";
+import { useLinkStore, type LinkDisplay } from "../../stores/link";
+import { useSatelliteStore, type Satellite } from "../../stores/satellite";
+import { useUIStore } from "../../stores/ui";
+import satelliteIcon from "../../assets/satellite-icon.svg";
+import groundStationIcon from "../../assets/ground-station-icon.svg";
 
 const props = withDefaults(
   defineProps<{
-    showAllStatus?: boolean
-    showFloatCard?: boolean
-    showOverlay?: boolean
+    showAllStatus?: boolean;
+    showFloatCard?: boolean;
+    showOverlay?: boolean;
   }>(),
   {
     showAllStatus: false,
     showFloatCard: true,
-    showOverlay: true
-  }
-)
+    showOverlay: true,
+  },
+);
 
-const cesiumContainer = ref<HTMLElement | null>(null)
-const { initCesium, viewer } = useCesium()
-const instanceStore = useInstanceStore()
-const linkStore = useLinkStore()
-const satelliteStore = useSatelliteStore()
-const uiStore = useUIStore()
+const cesiumContainer = ref<HTMLElement | null>(null);
+const { initCesium, viewer } = useCesium();
+const instanceStore = useInstanceStore();
+const linkStore = useLinkStore();
+const satelliteStore = useSatelliteStore();
+const uiStore = useUIStore();
 
-const isPaused = ref(false)
-const webglUnavailable = ref(false)
-const sceneMode = ref('自动巡航')
-let interactionTimeout: number | null = null
-let selectionHandler: Cesium.ScreenSpaceEventHandler | null = null
-let communicationLoopTimer: number | null = null
+const isPaused = ref(false);
+const webglUnavailable = ref(false);
+const sceneMode = ref("自动巡航");
+let interactionTimeout: number | null = null;
+let selectionHandler: Cesium.ScreenSpaceEventHandler | null = null;
+let communicationLoopTimer: number | null = null;
 
-const EARTH_RADIUS_METERS = 6378137
-const EARTH_MU = 3.986004418e14
-const ORBIT_DEMO_SPEED = 120
-const INTERACTION_MODE_RESET_DELAY_MS = 1200
-const ORBIT_POLYLINE_SEGMENT_DEGREES = 4
-const ORBIT_POLYLINE_REFRESH_SECONDS = 4
-const COMMUNICATION_ACTIVE_MS = 5000
-const COMMUNICATION_IDLE_MS = 1000
-const GROUND_COMMUNICATION_WIDTH = 8
-const SATELLITE_COMMUNICATION_WIDTH = 6
-const COMMUNICATION_GROUND_ALTITUDE = 0
-const COMMUNICATION_SURFACE_CLEARANCE = 120000
+const EARTH_RADIUS_METERS = 6378137;
+const EARTH_MU = 3.986004418e14;
+const ORBIT_DEMO_SPEED = 120;
+const INTERACTION_MODE_RESET_DELAY_MS = 1200;
+const ORBIT_POLYLINE_SEGMENT_DEGREES = 4;
+const ORBIT_POLYLINE_REFRESH_SECONDS = 4;
+const COMMUNICATION_ACTIVE_MS = 5000;
+const COMMUNICATION_IDLE_MS = 1000;
+const GROUND_COMMUNICATION_WIDTH = 8;
+const SATELLITE_COMMUNICATION_WIDTH = 6;
+const COMMUNICATION_GROUND_ALTITUDE = 0;
+const COMMUNICATION_SURFACE_CLEARANCE = 120000;
 
 interface GroundPreset {
-  id: string
-  name: string
-  latitude: number
-  longitude: number
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
 }
 
 interface CustomGroundRecord extends GroundPreset {
-  preset?: boolean
+  preset?: boolean;
 }
 
 interface GroundStationListItem extends GroundPreset {
-  custom: boolean
-  preset: boolean
+  custom: boolean;
+  preset: boolean;
 }
 
-
 const DEMO_GROUND_STATIONS: GroundPreset[] = [
-  { id: 'ground-demo-west', name: '西部地面站', latitude: 31.2, longitude: 79.8 },
-  { id: 'ground-demo-east', name: '东部地面站', latitude: 39.9, longitude: 121.7 }
-]
+  {
+    id: "ground-demo-west",
+    name: "西部地面站",
+    latitude: 31.2,
+    longitude: 79.8,
+  },
+  {
+    id: "ground-demo-east",
+    name: "东部地面站",
+    latitude: 39.9,
+    longitude: 121.7,
+  },
+];
 
-const CUSTOM_GROUND_STORAGE_KEY = 'custom-ground-stations-v1'
+const CUSTOM_GROUND_STORAGE_KEY = "custom-ground-stations-v1";
 
-const satelliteCount = computed(() => satelliteStore.satellites.length)
+const satelliteCount = computed(() => satelliteStore.satellites.length);
 const sceneModeHint = computed(() => {
-  if (sceneMode.value === '聚焦查看') {
-    return `已跟踪目标 · 轨道演示 ×${ORBIT_DEMO_SPEED}`
+  if (sceneMode.value === "聚焦查看") {
+    return `已跟踪目标 · 轨道演示 ×${ORBIT_DEMO_SPEED}`;
   }
-  if (sceneMode.value === '手动控制') {
-    return `可自由拖拽镜头，卫星网络持续运行 · ×${ORBIT_DEMO_SPEED}`
+  if (sceneMode.value === "手动控制") {
+    return `可自由拖拽镜头，卫星网络持续运行 · ×${ORBIT_DEMO_SPEED}`;
   }
-  return `自动巡航与手动查看切换 · 轨道演示 ×${ORBIT_DEMO_SPEED}`
-})
-const showAllStatus = computed(() => props.showAllStatus)
-const selectedSatelliteCard = computed(() => satelliteStore.selectedSatellite)
+  return `自动巡航与手动查看切换 · 轨道演示 ×${ORBIT_DEMO_SPEED}`;
+});
+const showAllStatus = computed(() => props.showAllStatus);
+const selectedSatelliteCard = computed(() => satelliteStore.selectedSatellite);
 const selectedOrbitMetrics = computed(() =>
-  selectedSatelliteCard.value ? getOrbitMetrics(selectedSatelliteCard.value.alt || 500000) : null
-)
-const isSatEditMode = ref(false)
-const showSatDialog = ref(false)
-const isGroundEditMode = ref(false)
-const showGsDialog = ref(false)
+  selectedSatelliteCard.value
+    ? getOrbitMetrics(selectedSatelliteCard.value.alt || 500000)
+    : null,
+);
+const isSatEditMode = ref(false);
+const showSatDialog = ref(false);
+const isGroundEditMode = ref(false);
+const showGsDialog = ref(false);
 const gsEditForm = ref<CustomGroundRecord>({
-  id: '',
-  name: '',
+  id: "",
+  name: "",
   latitude: 30,
   longitude: 110,
-  preset: false
-})
-const presetSelection = ref<string[]>([])
-const customGroundStations = ref<CustomGroundRecord[]>([])
+  preset: false,
+});
+const presetSelection = ref<string[]>([]);
+const customGroundStations = ref<CustomGroundRecord[]>([]);
 const groundStations = computed<GroundStationListItem[]>(() =>
   instanceStore.instances
-    .filter((item) => item.type.toLowerCase().includes('ground'))
+    .filter((item) => item.type.toLowerCase().includes("ground"))
     .map((item) => {
-      const position = satelliteStore.positions[item.instance_id]
+      const position = satelliteStore.positions[item.instance_id];
       return {
         id: item.instance_id,
         name: item.name || item.instance_id,
         latitude: position?.latitude ?? 0,
         longitude: position?.longitude ?? 0,
-        custom: item.extra?.custom === 'true',
-        preset: item.extra?.preset === 'true'
-      }
+        custom: item.extra?.custom === "true",
+        preset: item.extra?.preset === "true",
+      };
     })
     .sort((a, b) => {
-      if (a.custom !== b.custom) return a.custom ? -1 : 1
-      return a.name.localeCompare(b.name, 'zh-CN')
-    })
-)
+      if (a.custom !== b.custom) return a.custom ? -1 : 1;
+      return a.name.localeCompare(b.name, "zh-CN");
+    }),
+);
 const availableGroundPresets = computed(() => {
-  const existingIds = new Set(groundStations.value.map((item) => item.id))
-  return DEMO_GROUND_STATIONS.filter((preset) => !existingIds.has(preset.id))
-})
+  const existingIds = new Set(groundStations.value.map((item) => item.id));
+  return DEMO_GROUND_STATIONS.filter((preset) => !existingIds.has(preset.id));
+});
 
 // ===== 通信传输路径 (业务路径) 高亮 =====
-const showPathPanel = ref(false)
-const pathSourceId = ref<string>('')
-const pathTargetId = ref<string>('')
-const activePath = ref<string[]>([]) // 节点 instance_id 序列：源 -> 中转(卫星/GEO) -> 目的
-const activePathLinkIds = ref<string[]>([]) // 路径上对应的 link.id 顺序集合
-const pathError = ref<string>('')
-const routeCycleIndex = ref(0)
+const showPathPanel = ref(false);
+const pathSourceId = ref<string>("");
+const pathTargetId = ref<string>("");
+const activePath = ref<string[]>([]); // 节点 instance_id 序列：源 -> 中转(卫星/GEO) -> 目的
+const activePathLinkIds = ref<string[]>([]); // 路径上对应的 link.id 顺序集合
+const pathError = ref<string>("");
+const routeCycleIndex = ref(0);
 
 const groundStationOptions = computed(() =>
   instanceStore.instancesForDisplay.filter((item) =>
-    item.type.toLowerCase().includes('ground')
-  )
-)
+    item.type.toLowerCase().includes("ground"),
+  ),
+);
 
 const canRoute = computed(
-  () => !!pathSourceId.value && !!pathTargetId.value && pathSourceId.value !== pathTargetId.value
-)
+  () =>
+    !!pathSourceId.value &&
+    !!pathTargetId.value &&
+    pathSourceId.value !== pathTargetId.value,
+);
 
-type OrbitBucket = 'leo' | 'meo' | 'geo'
+type OrbitBucket = "leo" | "meo" | "geo";
 
 function getOrbitBucket(altitudeMeters: number): OrbitBucket {
-  if (altitudeMeters > 30000000) return 'geo'
-  if (altitudeMeters > 10000000) return 'meo'
-  return 'leo'
+  if (altitudeMeters > 30000000) return "geo";
+  if (altitudeMeters > 10000000) return "meo";
+  return "leo";
 }
 
 function rebuildScene() {
-  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value)
+  if (viewer.value && !viewer.value.isDestroyed()) buildScene(viewer.value);
 }
 
 const pathHopsLabel = computed(() => {
-  if (activePath.value.length === 0) return ''
+  if (activePath.value.length === 0) return "";
   return activePath.value
     .map((id) => {
-      const inst = instanceStore.instancesForDisplay.find((i) => i.id === id)
-      if (inst) return inst.name
-      const sat = satelliteStore.satellites.find((s) => s.instanceId === id)
-      if (sat) return sat.name
-      return id
+      const inst = instanceStore.instancesForDisplay.find((i) => i.id === id);
+      if (inst) return inst.name;
+      const sat = satelliteStore.satellites.find((s) => s.instanceId === id);
+      if (sat) return sat.name;
+      return id;
     })
-    .join(' → ')
-})
+    .join(" → ");
+});
 
 // 用启用的链路构造无向图，BFS 找最短跳数路径
 function isGroundStationVisibleToSatellite(
   ground: { latitude: number; longitude: number; altitude?: number },
-  satellitePosition: Cesium.Cartesian3
+  satellitePosition: Cesium.Cartesian3,
 ) {
   const groundPosition = Cesium.Cartesian3.fromDegrees(
     ground.longitude,
     ground.latitude,
-    ground.altitude || 30
-  )
-  const groundNormal = Cesium.Cartesian3.normalize(groundPosition, new Cesium.Cartesian3())
+    ground.altitude || 30,
+  );
+  const groundNormal = Cesium.Cartesian3.normalize(
+    groundPosition,
+    new Cesium.Cartesian3(),
+  );
   const sightVector = Cesium.Cartesian3.subtract(
     satellitePosition,
     groundPosition,
-    new Cesium.Cartesian3()
-  )
+    new Cesium.Cartesian3(),
+  );
 
-  return Cesium.Cartesian3.dot(groundNormal, sightVector) > 0
+  return Cesium.Cartesian3.dot(groundNormal, sightVector) > 0;
 }
 
 // 离地面站 3D 直线距离最近、且地平线以上可见的 LEO 卫星（不设距离上限）。
 function findNearestVisibleLeo(
   groundPosition: { latitude: number; longitude: number; altitude?: number },
   time: Cesium.JulianDate,
-  startTime: Cesium.JulianDate
+  startTime: Cesium.JulianDate,
 ): Satellite | null {
-  const leoSatellites = satelliteStore.satellites.filter((sat) => getOrbitBucket(sat.alt || 0) === 'leo')
+  const leoSatellites = satelliteStore.satellites.filter(
+    (sat) => getOrbitBucket(sat.alt || 0) === "leo",
+  );
   const groundCartesian = Cesium.Cartesian3.fromDegrees(
     groundPosition.longitude,
     groundPosition.latitude,
-    groundPosition.altitude || 30
-  )
+    groundPosition.altitude || 30,
+  );
 
-  let best: { sat: Satellite; distance: number } | null = null
+  let best: { sat: Satellite; distance: number } | null = null;
   for (const sat of leoSatellites) {
-    const satCartesian = getSatellitePosition(sat, time, startTime)
-    if (!isGroundStationVisibleToSatellite(groundPosition, satCartesian)) continue
+    const satCartesian = getSatellitePosition(sat, time, startTime);
+    if (!isGroundStationVisibleToSatellite(groundPosition, satCartesian))
+      continue;
 
-    const distance = Cesium.Cartesian3.distance(groundCartesian, satCartesian)
-    if (!best || distance < best.distance) best = { sat, distance }
+    const distance = Cesium.Cartesian3.distance(groundCartesian, satCartesian);
+    if (!best || distance < best.distance) best = { sat, distance };
   }
 
-  return best?.sat ?? null
+  return best?.sat ?? null;
 }
 
 // 路由：源站接入「离它 3D 最近的可见卫星」S_src 固定；目的接入星 S_dst 从
@@ -595,55 +785,64 @@ function evaluatePathFeasibility(
   srcGround: { latitude: number; longitude: number; altitude?: number },
   dstGround: { latitude: number; longitude: number; altitude?: number },
   time: Cesium.JulianDate,
-  startTime: Cesium.JulianDate
+  startTime: Cesium.JulianDate,
 ) {
-  const satSrc = findNearestVisibleLeo(srcGround, time, startTime)
-  if (!satSrc) return null
-  const posSrc = getSatellitePosition(satSrc, time, startTime)
+  const satSrc = findNearestVisibleLeo(srcGround, time, startTime);
+  if (!satSrc) return null;
+  const posSrc = getSatellitePosition(satSrc, time, startTime);
 
   const dstCartesian = Cesium.Cartesian3.fromDegrees(
     dstGround.longitude,
     dstGround.latitude,
-    dstGround.altitude || 30
-  )
-  const leoSatellites = satelliteStore.satellites.filter((sat) => getOrbitBucket(sat.alt || 0) === 'leo')
+    dstGround.altitude || 30,
+  );
+  const leoSatellites = satelliteStore.satellites.filter(
+    (sat) => getOrbitBucket(sat.alt || 0) === "leo",
+  );
 
-  let best: { sat: Satellite; pos: Cesium.Cartesian3; total: number } | null = null
+  let best: { sat: Satellite; pos: Cesium.Cartesian3; total: number } | null =
+    null;
   for (const sat of leoSatellites) {
-    const satPos = getSatellitePosition(sat, time, startTime)
-    if (!isGroundStationVisibleToSatellite(dstGround, satPos)) continue
+    const satPos = getSatellitePosition(sat, time, startTime);
+    if (!isGroundStationVisibleToSatellite(dstGround, satPos)) continue;
 
-    const isl = sat.instanceId === satSrc.instanceId ? 0 : Cesium.Cartesian3.distance(posSrc, satPos)
-    const downlink = Cesium.Cartesian3.distance(satPos, dstCartesian)
-    const total = isl + downlink
-    if (!best || total < best.total) best = { sat, pos: satPos, total }
+    const isl =
+      sat.instanceId === satSrc.instanceId
+        ? 0
+        : Cesium.Cartesian3.distance(posSrc, satPos);
+    const downlink = Cesium.Cartesian3.distance(satPos, dstCartesian);
+    const total = isl + downlink;
+    if (!best || total < best.total) best = { sat, pos: satPos, total };
   }
 
-  if (!best) return null
+  if (!best) return null;
 
-  return { satSrc, satDst: best.sat, posSrc, posDst: best.pos }
+  return { satSrc, satDst: best.sat, posSrc, posDst: best.pos };
 }
 
 function getDynamicGroundUplinkLinks() {
-  const v = viewer.value
-  if (!v || v.isDestroyed()) return []
+  const v = viewer.value;
+  if (!v || v.isDestroyed()) return [];
 
-  const result: LinkDisplay[] = []
-  const leoSatellites = satelliteStore.satellites.filter((sat) => getOrbitBucket(sat.alt || 0) === 'leo')
-  const currentTime = v.clock.currentTime
-  const startTime = v.clock.startTime
+  const result: LinkDisplay[] = [];
+  const leoSatellites = satelliteStore.satellites.filter(
+    (sat) => getOrbitBucket(sat.alt || 0) === "leo",
+  );
+  const currentTime = v.clock.currentTime;
+  const startTime = v.clock.startTime;
 
   groundStationOptions.value.forEach((ground) => {
-    const groundPosition = satelliteStore.positions[ground.id]
-    if (!groundPosition) return
+    const groundPosition = satelliteStore.positions[ground.id];
+    if (!groundPosition) return;
 
     const nearest = leoSatellites
       .map((sat) => {
-        const satCartesian = getSatellitePosition(sat, currentTime, startTime)
-        if (!isGroundStationVisibleToSatellite(groundPosition, satCartesian)) return null
+        const satCartesian = getSatellitePosition(sat, currentTime, startTime);
+        if (!isGroundStationVisibleToSatellite(groundPosition, satCartesian))
+          return null;
 
-        const satCartographic = Cesium.Cartographic.fromCartesian(satCartesian)
-        if (!satCartographic) return null
+        const satCartographic = Cesium.Cartographic.fromCartesian(satCartesian);
+        if (!satCartographic) return null;
 
         return {
           sat,
@@ -651,204 +850,209 @@ function getDynamicGroundUplinkLinks() {
             groundPosition.latitude,
             groundPosition.longitude,
             Cesium.Math.toDegrees(satCartographic.latitude),
-            Cesium.Math.toDegrees(satCartographic.longitude)
-          )
-        }
+            Cesium.Math.toDegrees(satCartographic.longitude),
+          ),
+        };
       })
-      .filter((item): item is { sat: Satellite; distance: number } => item !== null)
+      .filter(
+        (item): item is { sat: Satellite; distance: number } => item !== null,
+      )
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, 1)
+      .slice(0, 1);
 
     nearest.forEach(({ sat }) => {
       result.push({
         id: `dynamic-uplink-${ground.id}-${sat.instanceId}`,
-        type: 'ground-uplink',
-        status: 'normal',
+        type: "ground-uplink",
+        status: "normal",
         enabled: true,
         endpoints: [ground.id, sat.instanceId],
         recvBps: 0,
         sendBps: 0,
-        nodeIndex: 0
-      })
-    })
-  })
+        nodeIndex: 0,
+      });
+    });
+  });
 
-  return result
+  return result;
 }
 
 function getRouteLinks() {
-  return getDynamicGroundUplinkLinks()
+  return getDynamicGroundUplinkLinks();
 }
 
-function findRoute(srcId: string, dstId: string): { nodes: string[]; linkIds: string[] } | null {
-  const routeLinks = getRouteLinks()
-  const sourceLink = routeLinks.find((link) => link.endpoints[0] === srcId)
-  const targetLink = routeLinks.find((link) => link.endpoints[0] === dstId)
+function findRoute(
+  srcId: string,
+  dstId: string,
+): { nodes: string[]; linkIds: string[] } | null {
+  const routeLinks = getRouteLinks();
+  const sourceLink = routeLinks.find((link) => link.endpoints[0] === srcId);
+  const targetLink = routeLinks.find((link) => link.endpoints[0] === dstId);
 
-  if (!sourceLink || !targetLink) return null
+  if (!sourceLink || !targetLink) return null;
 
-  const sourceSatelliteId = sourceLink.endpoints[1]
-  const targetSatelliteId = targetLink.endpoints[1]
+  const sourceSatelliteId = sourceLink.endpoints[1];
+  const targetSatelliteId = targetLink.endpoints[1];
 
-  const linkIds = [sourceLink.id]
-  const nodes = [srcId, sourceSatelliteId]
+  const linkIds = [sourceLink.id];
+  const nodes = [srcId, sourceSatelliteId];
 
   if (sourceSatelliteId !== targetSatelliteId) {
-    const relayLinkId = `dynamic-isl-${sourceSatelliteId}-${targetSatelliteId}`
-    linkIds.push(relayLinkId)
-    nodes.push(targetSatelliteId)
+    const relayLinkId = `dynamic-isl-${sourceSatelliteId}-${targetSatelliteId}`;
+    linkIds.push(relayLinkId);
+    nodes.push(targetSatelliteId);
   }
 
-  linkIds.push(targetLink.id)
-  nodes.push(dstId)
+  linkIds.push(targetLink.id);
+  nodes.push(dstId);
 
-  return { nodes, linkIds }
+  return { nodes, linkIds };
 }
 
 function computeAndShowPath() {
-  if (!canRoute.value) return false
-  pathError.value = ''
-  const route = findRoute(pathSourceId.value, pathTargetId.value)
+  if (!canRoute.value) return false;
+  pathError.value = "";
+  const route = findRoute(pathSourceId.value, pathTargetId.value);
   if (!route) {
-    activePath.value = []
-    activePathLinkIds.value = []
-    pathError.value = '当前没有卫星同时满足两端通信条件'
-    return false
+    activePath.value = [];
+    activePathLinkIds.value = [];
+    pathError.value = "当前没有卫星同时满足两端通信条件";
+    return false;
   }
-  activePath.value = route.nodes
-  activePathLinkIds.value = route.linkIds
-  return true
+  activePath.value = route.nodes;
+  activePathLinkIds.value = route.linkIds;
+  return true;
 }
 
 function applySelectedPath() {
-  stopCommunicationLoop()
-  return computeAndShowPath()
+  stopCommunicationLoop();
+  return computeAndShowPath();
 }
 
 function showDemoPath() {
-  const grounds = groundStationOptions.value
+  const grounds = groundStationOptions.value;
   if (grounds.length < 2) {
-    stopCommunicationLoop()
-    clearActivePath()
-    routeCycleIndex.value = 0
-    pathError.value = '地面站不足，无法演示'
-    return false
+    stopCommunicationLoop();
+    clearActivePath();
+    routeCycleIndex.value = 0;
+    pathError.value = "地面站不足，无法演示";
+    return false;
   }
-  pathSourceId.value = 'ground-demo-west'
-  pathTargetId.value = 'ground-demo-east'
-  startCommunicationLoop(true)
-  return true
+  pathSourceId.value = "ground-demo-west";
+  pathTargetId.value = "ground-demo-east";
+  startCommunicationLoop(true);
+  return true;
 }
 
 function clearActivePath() {
-  activePath.value = []
-  activePathLinkIds.value = []
-  pathError.value = ''
+  activePath.value = [];
+  activePathLinkIds.value = [];
+  pathError.value = "";
 }
 
 function pauseCommunicationLoop() {
-  stopCommunicationLoop()
-  clearActivePath()
+  stopCommunicationLoop();
+  clearActivePath();
 }
 
 function stopCommunicationLoop() {
   if (communicationLoopTimer !== null) {
-    window.clearTimeout(communicationLoopTimer)
-    communicationLoopTimer = null
+    window.clearTimeout(communicationLoopTimer);
+    communicationLoopTimer = null;
   }
 }
 
 function scheduleNextCommunicationCycle(delayMs = COMMUNICATION_IDLE_MS) {
   if (!canRoute.value) {
-    clearActivePath()
-    pathError.value = '地面站不足，无法演示'
-    return
+    clearActivePath();
+    pathError.value = "地面站不足，无法演示";
+    return;
   }
   communicationLoopTimer = window.setTimeout(() => {
-    const hasRoute = computeAndShowPath()
+    const hasRoute = computeAndShowPath();
     communicationLoopTimer = window.setTimeout(
       () => {
-        clearActivePath()
-        scheduleNextCommunicationCycle()
+        clearActivePath();
+        scheduleNextCommunicationCycle();
       },
-      hasRoute ? COMMUNICATION_ACTIVE_MS : COMMUNICATION_IDLE_MS
-    )
-  }, delayMs)
+      hasRoute ? COMMUNICATION_ACTIVE_MS : COMMUNICATION_IDLE_MS,
+    );
+  }, delayMs);
 }
 
 function startCommunicationLoop(immediate = false) {
-  scheduleNextCommunicationCycle(immediate ? 0 : COMMUNICATION_IDLE_MS)
+  scheduleNextCommunicationCycle(immediate ? 0 : COMMUNICATION_IDLE_MS);
 }
 
 const satEditForm = ref({
   id: 0,
-  name: '',
+  name: "",
   alt: 550000,
   inclination: 53,
   baseLon: 0,
-  status: 'normal' as 'normal' | 'warning' | 'danger' | 'offline'
-})
+  status: "normal" as "normal" | "warning" | "danger" | "offline",
+});
 
 function getStatusLabel(status: string) {
-  if (status === 'warning') return '告警'
-  if (status === 'danger') return '严重'
-  if (status === 'offline') return '离线'
-  return '正常'
+  if (status === "warning") return "告警";
+  if (status === "danger") return "严重";
+  if (status === "offline") return "离线";
+  return "正常";
 }
 
 function statusColor(status: string) {
-  if (status === 'warning') return Cesium.Color.fromCssColorString('#ffd04b')
-  if (status === 'danger') return Cesium.Color.fromCssColorString('#ff6b6b')
-  if (status === 'offline') return Cesium.Color.fromCssColorString('#7b8794')
-  return Cesium.Color.fromCssColorString('#00d2ff')
+  if (status === "warning") return Cesium.Color.fromCssColorString("#ffd04b");
+  if (status === "danger") return Cesium.Color.fromCssColorString("#ff6b6b");
+  if (status === "offline") return Cesium.Color.fromCssColorString("#7b8794");
+  return Cesium.Color.fromCssColorString("#00d2ff");
 }
 
 function clearSelection() {
-  satelliteStore.selectedSatelliteId = null
-  isPaused.value = false
-  sceneMode.value = '自动巡航'
+  satelliteStore.selectedSatelliteId = null;
+  isPaused.value = false;
+  sceneMode.value = "自动巡航";
   if (viewer.value && !viewer.value.isDestroyed()) {
-    viewer.value.trackedEntity = undefined
-    viewer.value.clock.shouldAnimate = true
+    viewer.value.trackedEntity = undefined;
+    viewer.value.clock.shouldAnimate = true;
     viewer.value.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(108, 24, 18500000),
       orientation: {
         heading: Cesium.Math.toRadians(0),
         pitch: Cesium.Math.toRadians(-90),
-        roll: 0
+        roll: 0,
       },
-      duration: 1.2
-    })
+      duration: 1.2,
+    });
   }
 }
 
 function resetSatForm() {
   satEditForm.value = {
     id: 0,
-    name: '',
+    name: "",
     alt: 550000,
     inclination: 53,
     baseLon: 0,
-    status: 'normal'
-  }
+    status: "normal",
+  };
 }
 
 function openAddSatDialog() {
-  resetSatForm()
-  showSatDialog.value = true
+  resetSatForm();
+  showSatDialog.value = true;
 }
 
 function openEditSatDialog(sat: any) {
-  if (!sat) return
+  if (!sat) return;
   satEditForm.value = {
     id: sat.id || 0,
-    name: sat.name || '',
+    name: sat.name || "",
     alt: sat.alt || 550000,
     inclination: sat.inclination || 0,
     baseLon: sat.baseLon || 0,
-    status: sat.status || 'normal'
-  }
-  showSatDialog.value = true
+    status: sat.status || "normal",
+  };
+  showSatDialog.value = true;
 }
 
 function saveSatEdit() {
@@ -857,77 +1061,79 @@ function saveSatEdit() {
     alt: satEditForm.value.alt,
     inclination: satEditForm.value.inclination,
     baseLon: satEditForm.value.baseLon,
-    status: satEditForm.value.status
-  }
+    status: satEditForm.value.status,
+  };
 
   if (satEditForm.value.id) {
-    satelliteStore.updateSatellite(satEditForm.value.id, payload)
+    satelliteStore.updateSatellite(satEditForm.value.id, payload);
     if (satelliteStore.selectedSatelliteId === satEditForm.value.id) {
-      satelliteStore.selectedSatelliteId = satEditForm.value.id
+      satelliteStore.selectedSatelliteId = satEditForm.value.id;
     }
   } else {
-    satelliteStore.addSatellite(payload)
+    satelliteStore.addSatellite(payload);
   }
 
-  showSatDialog.value = false
+  showSatDialog.value = false;
 }
 
 function deleteSat(id: number) {
-  satelliteStore.deleteSatellite(id)
+  satelliteStore.deleteSatellite(id);
   if (selectedSatelliteCard.value?.id === id) {
-    clearSelection()
+    clearSelection();
   }
 }
 
 function resetGsForm() {
   gsEditForm.value = {
-    id: '',
-    name: '',
+    id: "",
+    name: "",
     latitude: 30,
     longitude: 110,
-    preset: false
-  }
+    preset: false,
+  };
 }
 
 function openAddGsDialog() {
-  resetGsForm()
-  showGsDialog.value = true
+  resetGsForm();
+  showGsDialog.value = true;
 }
 
 function openEditGsDialog(gs: GroundStationListItem) {
-  if (!gs.custom) return
+  if (!gs.custom) return;
   gsEditForm.value = {
     id: gs.id,
     name: gs.name,
     latitude: gs.latitude,
     longitude: gs.longitude,
-    preset: gs.preset
-  }
-  showGsDialog.value = true
+    preset: gs.preset,
+  };
+  showGsDialog.value = true;
 }
 
-function isValidCustomGroundRecord(value: unknown): value is CustomGroundRecord {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Record<string, unknown>
+function isValidCustomGroundRecord(
+  value: unknown,
+): value is CustomGroundRecord {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
   return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    typeof candidate.latitude === 'number' &&
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.latitude === "number" &&
     Number.isFinite(candidate.latitude) &&
-    typeof candidate.longitude === 'number' &&
+    typeof candidate.longitude === "number" &&
     Number.isFinite(candidate.longitude)
-  )
+  );
 }
 
 function loadCustomGroundStations() {
   try {
-    const raw = localStorage.getItem(CUSTOM_GROUND_STORAGE_KEY)
-    if (!raw) return
+    const raw = localStorage.getItem(CUSTOM_GROUND_STORAGE_KEY);
+    if (!raw) return;
 
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return;
 
-    const seenIds = new Set<string>()
+    const seenIds = new Set<string>();
     customGroundStations.value = parsed
       .filter(isValidCustomGroundRecord)
       .map((item) => ({
@@ -935,33 +1141,36 @@ function loadCustomGroundStations() {
         name: item.name,
         latitude: item.latitude,
         longitude: item.longitude,
-        preset: Boolean(item.preset)
+        preset: Boolean(item.preset),
       }))
       .filter((item) => {
-        if (seenIds.has(item.id)) return false
-        seenIds.add(item.id)
-        return true
-      })
+        if (seenIds.has(item.id)) return false;
+        seenIds.add(item.id);
+        return true;
+      });
   } catch {
-    customGroundStations.value = []
+    customGroundStations.value = [];
   }
 }
 
 function persistCustomGroundStations() {
-  localStorage.setItem(CUSTOM_GROUND_STORAGE_KEY, JSON.stringify(customGroundStations.value))
+  localStorage.setItem(
+    CUSTOM_GROUND_STORAGE_KEY,
+    JSON.stringify(customGroundStations.value),
+  );
 }
 
 function ensureGroundInstanceResource(instanceId: string) {
-  if (instanceStore.resources[instanceId]) return
+  if (instanceStore.resources[instanceId]) return;
   instanceStore.resources[instanceId] = {
     cpu_usage: 0,
     mem_byte: 0,
-    swap_mem_byte: 0
-  }
+    swap_mem_byte: 0,
+  };
 }
 
 function ensureGroundUplinkResource(linkId: string) {
-  if (linkStore.resources[linkId]) return
+  if (linkStore.resources[linkId]) return;
   linkStore.resources[linkId] = {
     recv_bps: 0,
     send_bps: 0,
@@ -970,199 +1179,226 @@ function ensureGroundUplinkResource(linkId: string) {
     recv_err_pps: 0,
     send_err_pps: 0,
     recv_drop_pps: 0,
-    send_drop_pps: 0
-  }
+    send_drop_pps: 0,
+  };
 }
 
 function removeGroundUplinkLinks(groundId: string) {
   const removedIds = linkStore.links
-    .filter((link) => link.type === 'ground-uplink' && link.connect_instance.includes(groundId))
-    .map((link) => link.link_id)
+    .filter(
+      (link) =>
+        link.type === "ground-uplink" &&
+        link.connect_instance.includes(groundId),
+    )
+    .map((link) => link.link_id);
 
-  if (removedIds.length === 0) return
+  if (removedIds.length === 0) return;
 
   linkStore.links = linkStore.links.filter(
-    (link) => !(link.type === 'ground-uplink' && link.connect_instance.includes(groundId))
-  )
+    (link) =>
+      !(
+        link.type === "ground-uplink" &&
+        link.connect_instance.includes(groundId)
+      ),
+  );
   removedIds.forEach((linkId) => {
-    delete linkStore.resources[linkId]
-  })
+    delete linkStore.resources[linkId];
+  });
 }
 
 function toRadians(deg: number) {
-  return (deg * Math.PI) / 180
+  return (deg * Math.PI) / 180;
 }
 
-function greatCircleDeg(aLat: number, aLon: number, bLat: number, bLon: number) {
-  const lat1 = toRadians(aLat)
-  const lat2 = toRadians(bLat)
-  const deltaLat = lat2 - lat1
-  const deltaLon = toRadians(bLon - aLon)
+function greatCircleDeg(
+  aLat: number,
+  aLon: number,
+  bLat: number,
+  bLon: number,
+) {
+  const lat1 = toRadians(aLat);
+  const lat2 = toRadians(bLat);
+  const deltaLat = lat2 - lat1;
+  const deltaLon = toRadians(bLon - aLon);
   const haversine =
     Math.sin(deltaLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2
-  return 2 * Math.asin(Math.min(1, Math.sqrt(haversine)))
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+  return 2 * Math.asin(Math.min(1, Math.sqrt(haversine)));
 }
 
 function isLeoCandidate(instance: Instance) {
-  if (!instance.type.toLowerCase().includes('satellite')) return false
+  if (!instance.type.toLowerCase().includes("satellite")) return false;
 
-  const orbitLayer = `${instance.extra?.orbit_layer || instance.extra?.orbit || ''}`.toLowerCase()
-  if (orbitLayer.includes('leo') || orbitLayer.includes('low')) return true
-  if (orbitLayer.includes('meo') || orbitLayer.includes('geo')) return false
+  const orbitLayer =
+    `${instance.extra?.orbit_layer || instance.extra?.orbit || ""}`.toLowerCase();
+  if (orbitLayer.includes("leo") || orbitLayer.includes("low")) return true;
+  if (orbitLayer.includes("meo") || orbitLayer.includes("geo")) return false;
 
-  const identity = `${instance.instance_id} ${instance.name}`.toLowerCase()
-  if (identity.includes('geo') || identity.includes('meo')) return false
-  return true
+  const identity = `${instance.instance_id} ${instance.name}`.toLowerCase();
+  if (identity.includes("geo") || identity.includes("meo")) return false;
+  return true;
 }
 
 function ensureUplinkLinksFor(record: CustomGroundRecord) {
-  removeGroundUplinkLinks(record.id)
+  removeGroundUplinkLinks(record.id);
 
   const candidates = instanceStore.instances
     .filter(isLeoCandidate)
     .map((instance) => {
-      const position = satelliteStore.positions[instance.instance_id]
-      if (!position) return null
+      const position = satelliteStore.positions[instance.instance_id];
+      if (!position) return null;
       return {
         id: instance.instance_id,
         distance: greatCircleDeg(
           record.latitude,
           record.longitude,
           position.latitude,
-          position.longitude
-        )
-      }
+          position.longitude,
+        ),
+      };
     })
     .filter((item): item is { id: string; distance: number } => item !== null)
     .sort((a, b) => a.distance - b.distance)
-    .slice(0, 2)
+    .slice(0, 2);
 
   candidates.forEach((candidate, index) => {
-    const linkId = `link-uplink-${record.id}-${index}`
+    const linkId = `link-uplink-${record.id}-${index}`;
     const uplink: Link = {
       link_id: linkId,
-      type: 'ground-uplink',
+      type: "ground-uplink",
       enable: true,
       connect_instance: [record.id, candidate.id],
-      node_index: 0
-    }
-    linkStore.links.push(uplink)
-    ensureGroundUplinkResource(linkId)
-  })
+      node_index: 0,
+    };
+    linkStore.links.push(uplink);
+    ensureGroundUplinkResource(linkId);
+  });
 }
 
 function materializeGroundStation(record: CustomGroundRecord) {
-  const existing = instanceStore.instances.find((item) => item.instance_id === record.id)
+  const existing = instanceStore.instances.find(
+    (item) => item.instance_id === record.id,
+  );
   const extra = {
     ...(existing?.extra || {}),
-    custom: 'true',
-    preset: String(Boolean(record.preset))
-  }
+    custom: "true",
+    preset: String(Boolean(record.preset)),
+  };
 
   if (existing) {
-    existing.name = record.name
-    existing.type = 'ground-station'
-    existing.start = true
-    existing.extra = extra
+    existing.name = record.name;
+    existing.type = "ground-station";
+    existing.start = true;
+    existing.extra = extra;
   } else {
     instanceStore.instances.push({
       instance_id: record.id,
       name: record.name,
-      type: 'ground-station',
+      type: "ground-station",
       start: true,
       node_index: 0,
-      extra
-    })
+      extra,
+    });
   }
 
-  ensureGroundInstanceResource(record.id)
+  ensureGroundInstanceResource(record.id);
   satelliteStore.positions[record.id] = {
     latitude: record.latitude,
     longitude: record.longitude,
-    altitude: satelliteStore.positions[record.id]?.altitude ?? 50
-  }
+    altitude: satelliteStore.positions[record.id]?.altitude ?? 50,
+  };
 
-  ensureUplinkLinksFor(record)
+  ensureUplinkLinksFor(record);
 }
 
 function flushGroundStationChanges() {
-  persistCustomGroundStations()
-  rebuildScene()
+  persistCustomGroundStations();
+  rebuildScene();
 }
 
 function addGroundStation(
   record: CustomGroundRecord,
-  options: { silent?: boolean; deferRefresh?: boolean } = {}
+  options: { silent?: boolean; deferRefresh?: boolean } = {},
 ) {
   if (groundStations.value.some((item) => item.id === record.id)) {
-    if (!options.silent) ElMessage.warning('该地面站已存在')
-    return false
+    if (!options.silent) ElMessage.warning("该地面站已存在");
+    return false;
   }
 
-  customGroundStations.value.push(record)
-  materializeGroundStation(record)
+  customGroundStations.value.push(record);
+  materializeGroundStation(record);
 
-  if (!options.deferRefresh) flushGroundStationChanges()
-  return true
+  if (!options.deferRefresh) flushGroundStationChanges();
+  return true;
 }
 
 function updateGroundStation(
   record: CustomGroundRecord,
-  options: { deferRefresh?: boolean } = {}
+  options: { deferRefresh?: boolean } = {},
 ) {
-  const index = customGroundStations.value.findIndex((item) => item.id === record.id)
-  if (index < 0) return false
+  const index = customGroundStations.value.findIndex(
+    (item) => item.id === record.id,
+  );
+  if (index < 0) return false;
 
-  customGroundStations.value[index] = record
-  materializeGroundStation(record)
+  customGroundStations.value[index] = record;
+  materializeGroundStation(record);
 
-  if (!options.deferRefresh) flushGroundStationChanges()
-  return true
+  if (!options.deferRefresh) flushGroundStationChanges();
+  return true;
 }
 
 function importPresets(all: boolean) {
   const selectedPresets = all
     ? availableGroundPresets.value
-    : availableGroundPresets.value.filter((preset) => presetSelection.value.includes(preset.id))
+    : availableGroundPresets.value.filter((preset) =>
+        presetSelection.value.includes(preset.id),
+      );
 
   if (selectedPresets.length === 0) {
-    ElMessage.warning(all ? '当前没有可导入的预设地面站' : '请选择要导入的预设地面站')
-    return
+    ElMessage.warning(
+      all ? "当前没有可导入的预设地面站" : "请选择要导入的预设地面站",
+    );
+    return;
   }
 
-  let importedCount = 0
+  let importedCount = 0;
   selectedPresets.forEach((preset) => {
-    if (addGroundStation({ ...preset, preset: true }, { silent: true, deferRefresh: true })) {
-      importedCount += 1
+    if (
+      addGroundStation(
+        { ...preset, preset: true },
+        { silent: true, deferRefresh: true },
+      )
+    ) {
+      importedCount += 1;
     }
-  })
+  });
 
-  presetSelection.value = []
+  presetSelection.value = [];
 
   if (importedCount > 0) {
-    flushGroundStationChanges()
-    ElMessage.success(`已导入 ${importedCount} 个预设地面站`)
+    flushGroundStationChanges();
+    ElMessage.success(`已导入 ${importedCount} 个预设地面站`);
   }
 }
 
 function saveGsEdit() {
-  const isEdit = Boolean(gsEditForm.value.id)
-  const name = gsEditForm.value.name.trim()
-  const latitude = Number(gsEditForm.value.latitude)
-  const longitude = Number(gsEditForm.value.longitude)
+  const isEdit = Boolean(gsEditForm.value.id);
+  const name = gsEditForm.value.name.trim();
+  const latitude = Number(gsEditForm.value.latitude);
+  const longitude = Number(gsEditForm.value.longitude);
 
   if (!name) {
-    ElMessage.error('请输入地面站名称')
-    return
+    ElMessage.error("请输入地面站名称");
+    return;
   }
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-    ElMessage.error('纬度需在 -90 到 90 之间')
-    return
+    ElMessage.error("纬度需在 -90 到 90 之间");
+    return;
   }
   if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-    ElMessage.error('经度需在 -180 到 180 之间')
-    return
+    ElMessage.error("经度需在 -180 到 180 之间");
+    return;
   }
 
   const record: CustomGroundRecord = {
@@ -1170,50 +1406,56 @@ function saveGsEdit() {
     name,
     latitude,
     longitude,
-    preset: Boolean(gsEditForm.value.preset)
-  }
+    preset: Boolean(gsEditForm.value.preset),
+  };
 
-  const success = isEdit ? updateGroundStation(record) : addGroundStation(record)
-  if (!success) return
+  const success = isEdit
+    ? updateGroundStation(record)
+    : addGroundStation(record);
+  if (!success) return;
 
-  showGsDialog.value = false
-  resetGsForm()
-  ElMessage.success(isEdit ? '地面站已更新' : '地面站已添加')
+  showGsDialog.value = false;
+  resetGsForm();
+  ElMessage.success(isEdit ? "地面站已更新" : "地面站已添加");
 }
 
 function deleteGs(id: string) {
-  const target = groundStations.value.find((item) => item.id === id)
-  if (!target) return
+  const target = groundStations.value.find((item) => item.id === id);
+  if (!target) return;
   if (!target.custom) {
-    ElMessage.warning('系统内置地面站暂不支持删除')
-    return
+    ElMessage.warning("系统内置地面站暂不支持删除");
+    return;
   }
 
-  customGroundStations.value = customGroundStations.value.filter((item) => item.id !== id)
-  instanceStore.instances = instanceStore.instances.filter((item) => item.instance_id !== id)
-  delete instanceStore.resources[id]
-  delete satelliteStore.positions[id]
-  removeGroundUplinkLinks(id)
+  customGroundStations.value = customGroundStations.value.filter(
+    (item) => item.id !== id,
+  );
+  instanceStore.instances = instanceStore.instances.filter(
+    (item) => item.instance_id !== id,
+  );
+  delete instanceStore.resources[id];
+  delete satelliteStore.positions[id];
+  removeGroundUplinkLinks(id);
 
-  if (pathSourceId.value === id) pathSourceId.value = ''
-  if (pathTargetId.value === id) pathTargetId.value = ''
-  if (activePath.value.includes(id)) clearActivePath()
+  if (pathSourceId.value === id) pathSourceId.value = "";
+  if (pathTargetId.value === id) pathTargetId.value = "";
+  if (activePath.value.includes(id)) clearActivePath();
 
-  flushGroundStationChanges()
-  ElMessage.success('地面站已删除')
+  flushGroundStationChanges();
+  ElMessage.success("地面站已删除");
 }
 
 function restoreCustomGroundStations() {
   DEMO_GROUND_STATIONS.forEach((record) => {
-    materializeGroundStation({ ...record, preset: true })
-  })
+    materializeGroundStation({ ...record, preset: true });
+  });
 }
 
 function getOrbitMetrics(altitudeMeters: number) {
-  const altitude = Math.max(Number(altitudeMeters || 0), 0)
-  const orbitalRadius = EARTH_RADIUS_METERS + altitude
-  const speedMps = Math.sqrt(EARTH_MU / orbitalRadius)
-  const periodSeconds = 2 * Math.PI * Math.sqrt((orbitalRadius ** 3) / EARTH_MU)
+  const altitude = Math.max(Number(altitudeMeters || 0), 0);
+  const orbitalRadius = EARTH_RADIUS_METERS + altitude;
+  const speedMps = Math.sqrt(EARTH_MU / orbitalRadius);
+  const periodSeconds = 2 * Math.PI * Math.sqrt(orbitalRadius ** 3 / EARTH_MU);
 
   return {
     altitudeMeters: altitude,
@@ -1221,100 +1463,126 @@ function getOrbitMetrics(altitudeMeters: number) {
     speedMps,
     speedKps: speedMps / 1000,
     periodSeconds,
-    periodMinutes: periodSeconds / 60
-  }
+    periodMinutes: periodSeconds / 60,
+  };
 }
 
-function getOrbitElapsedSeconds(time: Cesium.JulianDate, startTime: Cesium.JulianDate) {
-  return Cesium.JulianDate.secondsDifference(time, startTime) * ORBIT_DEMO_SPEED
+function getOrbitElapsedSeconds(
+  time: Cesium.JulianDate,
+  startTime: Cesium.JulianDate,
+) {
+  return (
+    Cesium.JulianDate.secondsDifference(time, startTime) * ORBIT_DEMO_SPEED
+  );
 }
 
 // 纬度圈环模型：卫星在固定纬度（sat.inclination 复用为纬度 φ）、固定高度的
 // 水平圆环上，绕地轴按经度相位旋转。phase 为初始经度相位。
 function getRingElements(sat: any) {
-  const orbit = getOrbitMetrics(sat.alt || 500000)
-  const latitudeRad = Cesium.Math.toRadians(sat.inclination || 0)
+  const orbit = getOrbitMetrics(sat.alt || 500000);
+  const latitudeRad = Cesium.Math.toRadians(sat.inclination || 0);
   return {
     orbit,
     latitudeRad,
     phaseRad: Cesium.Math.toRadians(sat.phase || 0),
     ringRadius: orbit.orbitalRadius * Math.cos(latitudeRad),
-    ringHeight: orbit.orbitalRadius * Math.sin(latitudeRad)
-  }
+    ringHeight: orbit.orbitalRadius * Math.sin(latitudeRad),
+  };
 }
 
 function getRingPosition(
   ringRadius: number,
   ringHeight: number,
-  longitudeRad: number
+  longitudeRad: number,
 ) {
   return new Cesium.Cartesian3(
     ringRadius * Math.cos(longitudeRad),
     ringRadius * Math.sin(longitudeRad),
-    ringHeight
-  )
+    ringHeight,
+  );
 }
 
-function getSatellitePosition(sat: any, time: Cesium.JulianDate, startTime: Cesium.JulianDate) {
-  const orbitElapsedSeconds = getOrbitElapsedSeconds(time, startTime)
-  const { orbit, phaseRad, ringRadius, ringHeight } = getRingElements(sat)
-  const longitude = phaseRad + (orbitElapsedSeconds / orbit.periodSeconds) * 2 * Math.PI
-  return getRingPosition(ringRadius, ringHeight, longitude)
+function getSatellitePosition(
+  sat: any,
+  time: Cesium.JulianDate,
+  startTime: Cesium.JulianDate,
+) {
+  const orbitElapsedSeconds = getOrbitElapsedSeconds(time, startTime);
+  const { orbit, phaseRad, ringRadius, ringHeight } = getRingElements(sat);
+  const longitude =
+    phaseRad + (orbitElapsedSeconds / orbit.periodSeconds) * 2 * Math.PI;
+  return getRingPosition(ringRadius, ringHeight, longitude);
 }
 
 function buildRaisedCommunicationArc(
   start: Cesium.Cartesian3,
   end: Cesium.Cartesian3,
   minPeakHeight = 180000,
-  steps = 18
+  steps = 18,
 ) {
-  const points: Cesium.Cartesian3[] = [start]
-  const segmentCount = Math.max(6, steps)
-  const chordLength = Cesium.Cartesian3.distance(start, end)
-  const peakHeight = Math.max(minPeakHeight, chordLength * 0.08)
-  const minSurfaceRadius = EARTH_RADIUS_METERS + COMMUNICATION_SURFACE_CLEARANCE
+  const points: Cesium.Cartesian3[] = [start];
+  const segmentCount = Math.max(6, steps);
+  const chordLength = Cesium.Cartesian3.distance(start, end);
+  const peakHeight = Math.max(minPeakHeight, chordLength * 0.08);
+  const minSurfaceRadius =
+    EARTH_RADIUS_METERS + COMMUNICATION_SURFACE_CLEARANCE;
 
-  const startDirection = Cesium.Cartesian3.normalize(start, new Cesium.Cartesian3())
-  const endDirection = Cesium.Cartesian3.normalize(end, new Cesium.Cartesian3())
-  const startRadius = Cesium.Cartesian3.magnitude(start)
-  const endRadius = Cesium.Cartesian3.magnitude(end)
+  const startDirection = Cesium.Cartesian3.normalize(
+    start,
+    new Cesium.Cartesian3(),
+  );
+  const endDirection = Cesium.Cartesian3.normalize(
+    end,
+    new Cesium.Cartesian3(),
+  );
+  const startRadius = Cesium.Cartesian3.magnitude(start);
+  const endRadius = Cesium.Cartesian3.magnitude(end);
 
   const startAnchor = Cesium.Cartesian3.multiplyByScalar(
     startDirection,
     Math.max(startRadius, minSurfaceRadius) + peakHeight * 0.16,
-    new Cesium.Cartesian3()
-  )
+    new Cesium.Cartesian3(),
+  );
   const endAnchor = Cesium.Cartesian3.multiplyByScalar(
     endDirection,
     Math.max(endRadius, minSurfaceRadius) + peakHeight * 0.06,
-    new Cesium.Cartesian3()
-  )
+    new Cesium.Cartesian3(),
+  );
 
-  points.push(startAnchor)
+  points.push(startAnchor);
 
   for (let i = 1; i < segmentCount; i += 1) {
-    const t = i / segmentCount
+    const t = i / segmentCount;
     const directionBlend = Cesium.Cartesian3.lerp(
       startDirection,
       endDirection,
       t,
-      new Cesium.Cartesian3()
-    )
-    const direction = Cesium.Cartesian3.normalize(directionBlend, new Cesium.Cartesian3())
+      new Cesium.Cartesian3(),
+    );
+    const direction = Cesium.Cartesian3.normalize(
+      directionBlend,
+      new Cesium.Cartesian3(),
+    );
     const baseRadius = Cesium.Math.lerp(
       Cesium.Cartesian3.magnitude(startAnchor),
       Cesium.Cartesian3.magnitude(endAnchor),
-      t
-    )
-    const lift = Math.sin(Math.PI * t) * peakHeight
-    const radius = Math.max(baseRadius + lift, minSurfaceRadius)
+      t,
+    );
+    const lift = Math.sin(Math.PI * t) * peakHeight;
+    const radius = Math.max(baseRadius + lift, minSurfaceRadius);
 
-    points.push(Cesium.Cartesian3.multiplyByScalar(direction, radius, new Cesium.Cartesian3()))
+    points.push(
+      Cesium.Cartesian3.multiplyByScalar(
+        direction,
+        radius,
+        new Cesium.Cartesian3(),
+      ),
+    );
   }
 
-  points.push(endAnchor)
-  points.push(end)
-  return points
+  points.push(endAnchor);
+  points.push(end);
+  return points;
 }
 
 // 星间链路弧线：两端都在高空，无需从地表抬起，只在两点连线基础上沿径向
@@ -1322,207 +1590,270 @@ function buildRaisedCommunicationArc(
 function buildInterSatelliteArc(
   start: Cesium.Cartesian3,
   end: Cesium.Cartesian3,
-  steps = 16
+  steps = 16,
 ) {
-  const points: Cesium.Cartesian3[] = []
-  const segmentCount = Math.max(6, steps)
-  const chordLength = Cesium.Cartesian3.distance(start, end)
-  const peakHeight = chordLength * 0.06
-  const minSurfaceRadius = EARTH_RADIUS_METERS + COMMUNICATION_SURFACE_CLEARANCE
+  const points: Cesium.Cartesian3[] = [];
+  const segmentCount = Math.max(6, steps);
+  const chordLength = Cesium.Cartesian3.distance(start, end);
+  const peakHeight = chordLength * 0.06;
+  const minSurfaceRadius =
+    EARTH_RADIUS_METERS + COMMUNICATION_SURFACE_CLEARANCE;
 
   for (let i = 0; i <= segmentCount; i += 1) {
-    const t = i / segmentCount
-    const point = Cesium.Cartesian3.lerp(start, end, t, new Cesium.Cartesian3())
-    const direction = Cesium.Cartesian3.normalize(point, new Cesium.Cartesian3())
-    const lift = Math.sin(Math.PI * t) * peakHeight
-    const radius = Math.max(Cesium.Cartesian3.magnitude(point) + lift, minSurfaceRadius)
-    points.push(Cesium.Cartesian3.multiplyByScalar(direction, radius, new Cesium.Cartesian3()))
+    const t = i / segmentCount;
+    const point = Cesium.Cartesian3.lerp(
+      start,
+      end,
+      t,
+      new Cesium.Cartesian3(),
+    );
+    const direction = Cesium.Cartesian3.normalize(
+      point,
+      new Cesium.Cartesian3(),
+    );
+    const lift = Math.sin(Math.PI * t) * peakHeight;
+    const radius = Math.max(
+      Cesium.Cartesian3.magnitude(point) + lift,
+      minSurfaceRadius,
+    );
+    points.push(
+      Cesium.Cartesian3.multiplyByScalar(
+        direction,
+        radius,
+        new Cesium.Cartesian3(),
+      ),
+    );
   }
 
-  return points
+  return points;
 }
 
 function makeOrbitPositions(
   sat: any,
   _time: Cesium.JulianDate,
   _startTime: Cesium.JulianDate,
-  sampleStepDegrees = ORBIT_POLYLINE_SEGMENT_DEGREES
+  sampleStepDegrees = ORBIT_POLYLINE_SEGMENT_DEGREES,
 ) {
-  const points: Cesium.Cartesian3[] = []
-  const { ringRadius, ringHeight } = getRingElements(sat)
-  const step = Math.max(1, sampleStepDegrees)
+  const points: Cesium.Cartesian3[] = [];
+  const { ringRadius, ringHeight } = getRingElements(sat);
+  const step = Math.max(1, sampleStepDegrees);
 
   for (let degree = 0; degree <= 360; degree += step) {
-    points.push(getRingPosition(ringRadius, ringHeight, Cesium.Math.toRadians(degree)))
+    points.push(
+      getRingPosition(ringRadius, ringHeight, Cesium.Math.toRadians(degree)),
+    );
   }
 
-  return points
+  return points;
 }
 
-
 function focusSatellite(id: number) {
-  const v = viewer.value
-  if (!v || v.isDestroyed()) return
+  const v = viewer.value;
+  if (!v || v.isDestroyed()) return;
 
-  const sat = satelliteStore.satellites.find((item) => item.id === id)
-  if (!sat) return
+  const sat = satelliteStore.satellites.find((item) => item.id === id);
+  if (!sat) return;
 
-  satelliteStore.selectedSatelliteId = id
-  isPaused.value = false
-  sceneMode.value = '聚焦查看'
-  v.clock.shouldAnimate = true
-  const entity = v.entities.getById(String(id))
-  if (!entity) return
-  const followDistance = Math.max((sat.alt || 500000) * 2.4, 1800000)
+  satelliteStore.selectedSatelliteId = id;
+  isPaused.value = false;
+  sceneMode.value = "聚焦查看";
+  v.clock.shouldAnimate = true;
+  const entity = v.entities.getById(String(id));
+  if (!entity) return;
+  const followDistance = Math.max((sat.alt || 500000) * 2.4, 1800000);
   entity.viewFrom = new Cesium.ConstantPositionProperty(
-    new Cesium.Cartesian3(0, -followDistance, followDistance * 0.42)
-  ) as any
-  v.trackedEntity = entity
+    new Cesium.Cartesian3(0, -followDistance, followDistance * 0.42),
+  ) as any;
+  v.trackedEntity = entity;
 
   v.flyTo(entity, {
     duration: 1.2,
     offset: new Cesium.HeadingPitchRange(
       Cesium.Math.toRadians(0),
       Cesium.Math.toRadians(-20),
-      followDistance
-    )
-  })
+      followDistance,
+    ),
+  });
 }
 
 function focusSatelliteFromPanel(id: number) {
-  focusSatellite(id)
+  focusSatellite(id);
 }
 
 function buildSceneSignature() {
   const sats = satelliteStore.satellites
-    .map((s) => `${s.id}:${s.name}:${s.status}:${s.alt}:${s.inclination}:${s.baseLon}:${s.phase}:${s.instanceId}`)
-    .join('|')
+    .map(
+      (s) =>
+        `${s.id}:${s.name}:${s.status}:${s.alt}:${s.inclination}:${s.baseLon}:${s.phase}:${s.instanceId}`,
+    )
+    .join("|");
 
   const grounds = instanceStore.instancesForDisplay
-    .filter((item) => !item.type.toLowerCase().includes('satellite'))
+    .filter((item) => !item.type.toLowerCase().includes("satellite"))
     .map((item) => {
-      const pos = satelliteStore.positions[item.id]
-      return `${item.id}:${item.name}:${item.type}:${pos?.latitude ?? ''}:${pos?.longitude ?? ''}`
+      const pos = satelliteStore.positions[item.id];
+      return `${item.id}:${item.name}:${item.type}:${pos?.latitude ?? ""}:${pos?.longitude ?? ""}`;
     })
-    .join('|')
+    .join("|");
 
   const links = linkStore.linksForDisplay
-    .map((l) => `${l.id}:${l.type}:${l.status}:${l.enabled}:${l.endpoints[0]}>${l.endpoints[1]}`)
-    .join('|')
+    .map(
+      (l) =>
+        `${l.id}:${l.type}:${l.status}:${l.enabled}:${l.endpoints[0]}>${l.endpoints[1]}`,
+    )
+    .join("|");
 
-  const selected = satelliteStore.selectedSatelliteId ?? ''
-  const path = activePathLinkIds.value.join(',')
+  const selected = satelliteStore.selectedSatelliteId ?? "";
+  const path = activePathLinkIds.value.join(",");
 
-  return `${sats}__${grounds}__${links}__${selected}__${path}`
+  return `${sats}__${grounds}__${links}__${selected}__${path}`;
 }
 
 function buildScene(v: Cesium.Viewer) {
-  if (!v || !v.entities || v.isDestroyed()) return
+  if (!v || !v.entities || v.isDestroyed()) return;
 
-  v.entities.removeAll()
+  v.entities.removeAll();
 
-  const startTime = v.clock.startTime
-  const positionMap = satelliteStore.positions
-  const satellites = satelliteStore.satellites
+  const startTime = v.clock.startTime;
+  const positionMap = satelliteStore.positions;
+  const satellites = satelliteStore.satellites;
   const groundInstances = instanceStore.instancesForDisplay.filter(
-    (item) => !item.type.toLowerCase().includes('satellite')
-  )
-  const groundInstanceIdSet = new Set(groundInstances.map((item) => item.id))
+    (item) => !item.type.toLowerCase().includes("satellite"),
+  );
+  const groundInstanceIdSet = new Set(groundInstances.map((item) => item.id));
 
   satellites.forEach((sat) => {
-    const isGeo = (sat.alt || 0) > 30000000
-    const isMeo = (sat.alt || 0) > 10000000 && (sat.alt || 0) <= 30000000
-    const isAbnormal = sat.status === 'warning' || sat.status === 'danger' || sat.status === 'offline'
-    const isSelected = satelliteStore.selectedSatelliteId === sat.id
+    const isGeo = (sat.alt || 0) > 30000000;
+    const isMeo = (sat.alt || 0) > 10000000 && (sat.alt || 0) <= 30000000;
+    const isAbnormal =
+      sat.status === "warning" ||
+      sat.status === "danger" ||
+      sat.status === "offline";
+    const isSelected = satelliteStore.selectedSatelliteId === sat.id;
     const color = isAbnormal
       ? statusColor(sat.status)
       : isGeo
-        ? Cesium.Color.fromCssColorString('#ff6b6b')
+        ? Cesium.Color.fromCssColorString("#ff6b6b")
         : isMeo
-          ? Cesium.Color.fromCssColorString('#ff9f43')
-          : Cesium.Color.fromCssColorString('#2ecc71')
-    const orbitSampleStep = isAbnormal || isSelected ? 2 : ORBIT_POLYLINE_SEGMENT_DEGREES
+          ? Cesium.Color.fromCssColorString("#ff9f43")
+          : Cesium.Color.fromCssColorString("#2ecc71");
+    const orbitSampleStep =
+      isAbnormal || isSelected ? 2 : ORBIT_POLYLINE_SEGMENT_DEGREES;
     const orbitLineCache = {
       bucket: Number.NaN,
-      positions: [] as Cesium.Cartesian3[]
-    }
+      positions: [] as Cesium.Cartesian3[],
+    };
 
     v.entities.add({
       id: String(sat.id),
       name: sat.name,
       position: new Cesium.CallbackPositionProperty(
         () => getSatellitePosition(sat, v.clock.currentTime, startTime),
-        false
+        false,
       ),
       billboard: {
         image: satelliteIcon,
-        width: isAbnormal ? (isGeo ? 34 : isMeo ? 31 : 29) : isGeo ? 28 : isMeo ? 25 : 23,
-        height: isAbnormal ? (isGeo ? 34 : isMeo ? 31 : 29) : isGeo ? 28 : isMeo ? 25 : 23,
-        color: isAbnormal ? color.withAlpha(1) : Cesium.Color.WHITE.withAlpha(0.96),
+        width: isAbnormal
+          ? isGeo
+            ? 34
+            : isMeo
+              ? 31
+              : 29
+          : isGeo
+            ? 28
+            : isMeo
+              ? 25
+              : 23,
+        height: isAbnormal
+          ? isGeo
+            ? 34
+            : isMeo
+              ? 31
+              : 29
+          : isGeo
+            ? 28
+            : isMeo
+              ? 25
+              : 23,
+        color: isAbnormal
+          ? color.withAlpha(1)
+          : Cesium.Color.WHITE.withAlpha(0.96),
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
         horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-        scaleByDistance: new Cesium.NearFarScalar(500000, 1.15, 80000000, 0.65)
+        scaleByDistance: new Cesium.NearFarScalar(500000, 1.15, 80000000, 0.65),
       },
       path: {
         show: isAbnormal || isSelected,
         leadTime: 0,
         trailTime: isGeo ? 3600 : 1800,
         width: isAbnormal ? (isGeo ? 2.4 : 2) : 1.2,
-        material: color.withAlpha(isAbnormal ? 0.72 : 0.45)
+        material: color.withAlpha(isAbnormal ? 0.72 : 0.45),
       },
       label: {
-        text: `${isAbnormal ? '异常 · ' : ''}${sat.name}`,
+        text: `${isAbnormal ? "异常 · " : ""}${sat.name}`,
         font: '600 11px "Microsoft YaHei", sans-serif',
         style: Cesium.LabelStyle.FILL,
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
         horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
         pixelOffset: new Cesium.Cartesian2(0, -10),
-        fillColor: isAbnormal ? color.withAlpha(0.98) : Cesium.Color.WHITE.withAlpha(0.85),
-        show: isAbnormal || isSelected
-      }
-    })
+        fillColor: isAbnormal
+          ? color.withAlpha(0.98)
+          : Cesium.Color.WHITE.withAlpha(0.85),
+        show: isAbnormal || isSelected,
+      },
+    });
 
     v.entities.add({
       id: `orbit-${sat.instanceId}`,
       polyline: {
         positions: new Cesium.CallbackProperty(() => {
-          const orbitElapsedSeconds = getOrbitElapsedSeconds(v.clock.currentTime, startTime)
-          const refreshBucket = Math.floor(orbitElapsedSeconds / ORBIT_POLYLINE_REFRESH_SECONDS)
+          const orbitElapsedSeconds = getOrbitElapsedSeconds(
+            v.clock.currentTime,
+            startTime,
+          );
+          const refreshBucket = Math.floor(
+            orbitElapsedSeconds / ORBIT_POLYLINE_REFRESH_SECONDS,
+          );
 
-          if (orbitLineCache.bucket !== refreshBucket || orbitLineCache.positions.length === 0) {
-            orbitLineCache.bucket = refreshBucket
+          if (
+            orbitLineCache.bucket !== refreshBucket ||
+            orbitLineCache.positions.length === 0
+          ) {
+            orbitLineCache.bucket = refreshBucket;
             orbitLineCache.positions = makeOrbitPositions(
               sat,
               v.clock.currentTime,
               startTime,
-              orbitSampleStep
-            )
+              orbitSampleStep,
+            );
           }
 
-          return orbitLineCache.positions
+          return orbitLineCache.positions;
         }, false),
         width: isAbnormal ? 1.5 : 0.8,
-        material: color.withAlpha(isAbnormal ? 0.35 : 0.05)
-      }
-    })
-  })
+        material: color.withAlpha(isAbnormal ? 0.35 : 0.05),
+      },
+    });
+  });
 
   if (satelliteStore.selectedSatelliteId !== null) {
-    const tracked = v.entities.getById(String(satelliteStore.selectedSatelliteId))
+    const tracked = v.entities.getById(
+      String(satelliteStore.selectedSatelliteId),
+    );
     if (tracked) {
-      v.trackedEntity = tracked
+      v.trackedEntity = tracked;
     }
   }
 
   groundInstances.forEach((ground) => {
-    const position = positionMap[ground.id]
-    if (!position) return
+    const position = positionMap[ground.id];
+    if (!position) return;
 
     const groundCartesian = Cesium.Cartesian3.fromDegrees(
       position.longitude,
       position.latitude,
-      position.altitude || 30
-    )
+      position.altitude || 30,
+    );
 
     v.entities.add({
       id: `ground-${ground.id}`,
@@ -1532,136 +1863,174 @@ function buildScene(v: Cesium.Viewer) {
         length: 180000,
         topRadius: 0,
         bottomRadius: 45000,
-        material: Cesium.Color.fromCssColorString('#f1c40f').withAlpha(0.7)
+        material: Cesium.Color.fromCssColorString("#f1c40f").withAlpha(0.7),
       },
       label: {
         text: ground.name,
         font: '600 12px "Microsoft YaHei", sans-serif',
         pixelOffset: new Cesium.Cartesian2(0, -24),
-        fillColor: Cesium.Color.WHITE
-      }
-    })
-  })
+        fillColor: Cesium.Color.WHITE,
+      },
+    });
+  });
 
   const resolveEndpointGround = (endpointId: string) => {
-    if (!groundInstanceIdSet.has(endpointId)) return undefined
-    const position = positionMap[endpointId]
-    if (!position) return undefined
+    if (!groundInstanceIdSet.has(endpointId)) return undefined;
+    const position = positionMap[endpointId];
+    if (!position) return undefined;
     return {
       id: endpointId,
       latitude: position.latitude,
       longitude: position.longitude,
-      altitude: position.altitude || 30
-    }
-  }
+      altitude: position.altitude || 30,
+    };
+  };
 
   // 链路渲染：以源站/目的站两个地面锚点为基准，接入卫星每帧实时取
   // 「地面站当前最近可见 LEO 星」。源 uplink、星间中继、目的 uplink 三段
   // 共用同一对实时接入星，保证首尾相连——不会因冻结的接入星随时间飞远而
   // 出现链路指向远处卫星、看似断开/穿地消失。
-  const pathGroundIds = activePath.value.filter((id) => groundInstanceIdSet.has(id))
+  const pathGroundIds = activePath.value.filter((id) =>
+    groundInstanceIdSet.has(id),
+  );
   if (pathGroundIds.length >= 2) {
-    const srcGround = resolveEndpointGround(pathGroundIds[0])
-    const dstGround = resolveEndpointGround(pathGroundIds[pathGroundIds.length - 1])
+    const srcGround = resolveEndpointGround(pathGroundIds[0]);
+    const dstGround = resolveEndpointGround(
+      pathGroundIds[pathGroundIds.length - 1],
+    );
 
     if (srcGround && dstGround) {
       // 链路显示回到之前可见的表现：通信弧线仍从真实地面站位置起落，
       // 只调整链路几何，不回退轨道、颗数和路由逻辑。
-      const groundCartesian = (g: { longitude: number; latitude: number; altitude?: number }) =>
+      const groundCartesian = (g: {
+        longitude: number;
+        latitude: number;
+        altitude?: number;
+      }) =>
         Cesium.Cartesian3.fromDegrees(
           g.longitude,
           g.latitude,
-          (g.altitude || 30) + COMMUNICATION_GROUND_ALTITUDE
-        )
+          (g.altitude || 30) + COMMUNICATION_GROUND_ALTITUDE,
+        );
 
-      const addLink = (id: string, isUplink: boolean, getPositions: () => Cesium.Cartesian3[]) => {
+      const addLink = (
+        id: string,
+        isUplink: boolean,
+        getPositions: () => Cesium.Cartesian3[],
+      ) => {
         const color = isUplink
-          ? Cesium.Color.fromCssColorString('#ff2d2d')
-          : Cesium.Color.fromCssColorString('#ffffff')
-        const glowPower = isUplink ? 0.18 : 0.12
+          ? Cesium.Color.fromCssColorString("#ff2d2d")
+          : Cesium.Color.fromCssColorString("#ffffff");
+        const glowPower = isUplink ? 0.18 : 0.12;
         v.entities.add({
           id,
           polyline: {
             positions: new Cesium.CallbackProperty(getPositions, false),
-            width: isUplink ? GROUND_COMMUNICATION_WIDTH : SATELLITE_COMMUNICATION_WIDTH,
+            width: isUplink
+              ? GROUND_COMMUNICATION_WIDTH
+              : SATELLITE_COMMUNICATION_WIDTH,
             material: new Cesium.PolylineGlowMaterialProperty({
               glowPower,
               taperPower: 0.25,
-              color: color.withAlpha(0.95)
+              color: color.withAlpha(0.95),
             }) as any,
             // 链路作为通信示意线始终可见：被地球遮挡的部分用同色 depthFailMaterial 绘制，
             // 不随卫星点/标签一起被背面遮挡（直线连线切入地球时仍完整显示）。
             depthFailMaterial: new Cesium.PolylineGlowMaterialProperty({
               glowPower,
               taperPower: 0.25,
-              color: color.withAlpha(0.95)
+              color: color.withAlpha(0.95),
             }) as any,
-            arcType: Cesium.ArcType.NONE
-          }
-        })
-      }
+            arcType: Cesium.ArcType.NONE,
+          },
+        });
+      };
 
       // 整条链路可行性判定（每帧求值，三段共享）：见 evaluatePathFeasibility。
       // 任一条件不满足 → 返回 null → 三段全部 return [] → 整条链路不显示。
       const evaluatePath = (time: Cesium.JulianDate) =>
-        evaluatePathFeasibility(srcGround, dstGround, time, startTime)
+        evaluatePathFeasibility(srcGround, dstGround, time, startTime);
 
       // 源上行
       addLink(`link-uplink-src-${srcGround.id}`, true, () => {
-        const e = evaluatePath(v.clock.currentTime)
-        if (!e) return []
-        return buildRaisedCommunicationArc(groundCartesian(srcGround), e.posSrc)
-      })
+        const e = evaluatePath(v.clock.currentTime);
+        if (!e) return [];
+        return buildRaisedCommunicationArc(
+          groundCartesian(srcGround),
+          e.posSrc,
+        );
+      });
 
       // 星间中继（两端接入星不同才画），白色抬升弧线
       addLink(`link-isl-${srcGround.id}-${dstGround.id}`, false, () => {
-        const e = evaluatePath(v.clock.currentTime)
-        if (!e || e.satSrc.instanceId === e.satDst.instanceId) return []
-        return buildInterSatelliteArc(e.posSrc, e.posDst)
-      })
+        const e = evaluatePath(v.clock.currentTime);
+        if (!e || e.satSrc.instanceId === e.satDst.instanceId) return [];
+        return buildInterSatelliteArc(e.posSrc, e.posDst);
+      });
 
       // 目的上行
       addLink(`link-uplink-dst-${dstGround.id}`, true, () => {
-        const e = evaluatePath(v.clock.currentTime)
-        if (!e) return []
-        return buildRaisedCommunicationArc(e.posDst, groundCartesian(dstGround))
-      })
+        const e = evaluatePath(v.clock.currentTime);
+        if (!e) return [];
+        return buildRaisedCommunicationArc(
+          e.posDst,
+          groundCartesian(dstGround),
+        );
+      });
     }
   }
 
   if (pathGroundIds.length >= 2) {
-    const srcGround = resolveEndpointGround(pathGroundIds[0])
-    const dstGround = resolveEndpointGround(pathGroundIds[pathGroundIds.length - 1])
+    const srcGround = resolveEndpointGround(pathGroundIds[0]);
+    const dstGround = resolveEndpointGround(
+      pathGroundIds[pathGroundIds.length - 1],
+    );
 
-    const addGroundHalo = (ground: { id: string } & { longitude: number; latitude: number; altitude?: number }, label: string) => {
-      const haloColor = Cesium.Color.fromCssColorString('#ff2d2d')
+    const addGroundHalo = (
+      ground: { id: string } & {
+        longitude: number;
+        latitude: number;
+        altitude?: number;
+      },
+      label: string,
+    ) => {
+      const haloColor = Cesium.Color.fromCssColorString("#ff2d2d");
       v.entities.add({
         id: `path-halo-${ground.id}`,
-        position: Cesium.Cartesian3.fromDegrees(ground.longitude, ground.latitude, ground.altitude || 30),
+        position: Cesium.Cartesian3.fromDegrees(
+          ground.longitude,
+          ground.latitude,
+          ground.altitude || 30,
+        ),
         point: {
           pixelSize: 14,
           color: haloColor.withAlpha(0.18),
           outlineColor: haloColor.withAlpha(0.92),
-          outlineWidth: 2
+          outlineWidth: 2,
         },
         label: {
           text: label,
           font: '700 13px "Microsoft YaHei", sans-serif',
           fillColor: haloColor,
-          pixelOffset: new Cesium.Cartesian2(0, -42)
-        }
-      })
-    }
+          pixelOffset: new Cesium.Cartesian2(0, -42),
+        },
+      });
+    };
 
-    const addSatHalo = (side: 'src' | 'dst') => {
-      const haloColor = Cesium.Color.fromCssColorString('#ffffff')
+    const addSatHalo = (side: "src" | "dst") => {
+      const haloColor = Cesium.Color.fromCssColorString("#ffffff");
       v.entities.add({
         id: `path-halo-sat-${side}`,
         position: new Cesium.CallbackPositionProperty(() => {
-          if (!srcGround || !dstGround) return undefined
-          const e = evaluatePathFeasibility(srcGround, dstGround, v.clock.currentTime, startTime)
-          if (!e) return undefined
-          return side === 'src' ? e.posSrc : e.posDst
+          if (!srcGround || !dstGround) return undefined;
+          const e = evaluatePathFeasibility(
+            srcGround,
+            dstGround,
+            v.clock.currentTime,
+            startTime,
+          );
+          if (!e) return undefined;
+          return side === "src" ? e.posSrc : e.posDst;
         }, false),
         point: {
           pixelSize: 16,
@@ -1669,163 +2038,189 @@ function buildScene(v: Cesium.Viewer) {
           outlineColor: haloColor.withAlpha(0.95),
           outlineWidth: 3,
           // 接入星 halo 是链路端点标记，与链路一致始终可见
-          disableDepthTestDistance: Number.POSITIVE_INFINITY
-        }
-      })
-    }
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+      });
+    };
 
     if (srcGround && dstGround) {
-      const srcInstance = instanceStore.instancesForDisplay.find((item) => item.id === srcGround.id)
-      const dstInstance = instanceStore.instancesForDisplay.find((item) => item.id === dstGround.id)
-      addGroundHalo(srcGround, `源端: ${srcInstance?.name || srcGround.id}`)
-      addGroundHalo(dstGround, `目的: ${dstInstance?.name || dstGround.id}`)
-      addSatHalo('src')
-      addSatHalo('dst')
+      const srcInstance = instanceStore.instancesForDisplay.find(
+        (item) => item.id === srcGround.id,
+      );
+      const dstInstance = instanceStore.instancesForDisplay.find(
+        (item) => item.id === dstGround.id,
+      );
+      addGroundHalo(srcGround, `源端: ${srcInstance?.name || srcGround.id}`);
+      addGroundHalo(dstGround, `目的: ${dstInstance?.name || dstGround.id}`);
+      addSatHalo("src");
+      addSatHalo("dst");
     }
   }
 }
 
 onMounted(() => {
-  if (!cesiumContainer.value) return
-  const isElectron = typeof window !== 'undefined' && (window as any).electronAPI
+  if (!cesiumContainer.value) return;
+  const isElectron =
+    typeof window !== "undefined" && (window as any).electronAPI;
 
-  setTimeout(async () => {
-    try {
-      await Promise.all([
-        instanceStore.fetchInstances(),
-        instanceStore.fetchAllResources(),
-        linkStore.fetchLinks(),
-        linkStore.fetchAllResources(),
-        satelliteStore.fetchPositions()
-      ])
+  setTimeout(
+    async () => {
+      try {
+        await Promise.all([
+          instanceStore.fetchInstances(),
+          instanceStore.fetchAllResources(),
+          linkStore.fetchLinks(),
+          linkStore.fetchAllResources(),
+          satelliteStore.fetchPositions(),
+        ]);
 
-      loadCustomGroundStations()
-      restoreCustomGroundStations()
+        loadCustomGroundStations();
+        restoreCustomGroundStations();
 
-      const v = await initCesium(cesiumContainer.value as HTMLElement)
-      const canvasElement = v.canvas
+        const v = await initCesium(cesiumContainer.value as HTMLElement);
+        const canvasElement = v.canvas;
 
-      if (canvasElement) {
-        canvasElement.addEventListener('webglcontextlost', (event: Event) => {
-          event.preventDefault()
-        })
-        canvasElement.addEventListener('webglcontextrestored', () => {
-          location.reload()
-        })
-      }
+        if (canvasElement) {
+          canvasElement.addEventListener("webglcontextlost", (event: Event) => {
+            event.preventDefault();
+          });
+          canvasElement.addEventListener("webglcontextrestored", () => {
+            location.reload();
+          });
+        }
 
-      v.scene.globe.show = true
-      v.scene.globe.enableLighting = false
-      // 保留地球遮挡效果；链路可见性改由抬升通信弧线 + depthFailMaterial 保证。
-      v.scene.globe.depthTestAgainstTerrain = true
-      v.scene.globe.showGroundAtmosphere = true
-      v.scene.globe.atmosphereLightIntensity = 18
-      v.scene.globe.baseColor = Cesium.Color.fromCssColorString('#10253f')
-      v.scene.backgroundColor = Cesium.Color.fromCssColorString('#020811')
-      v.scene.postProcessStages.fxaa.enabled = true
-      v.shadowMap.enabled = false
+        v.scene.globe.show = true;
+        v.scene.globe.enableLighting = false;
+        // 保留地球遮挡效果；链路可见性改由抬升通信弧线 + depthFailMaterial 保证。
+        v.scene.globe.depthTestAgainstTerrain = true;
+        v.scene.globe.showGroundAtmosphere = true;
+        v.scene.globe.atmosphereLightIntensity = 18;
+        v.scene.globe.baseColor = Cesium.Color.fromCssColorString("#10253f");
+        v.scene.backgroundColor = Cesium.Color.fromCssColorString("#020811");
+        v.scene.postProcessStages.fxaa.enabled = true;
+        v.shadowMap.enabled = false;
 
-      const earthCenter = Cesium.Cartesian3.fromDegrees(108, 24, 0)
-      v.camera.lookAt(
-        earthCenter,
-        new Cesium.HeadingPitchRange(Cesium.Math.toRadians(0), Cesium.Math.toRadians(-90), 18500000)
-      )
-      v.camera.lookAtTransform(Cesium.Matrix4.IDENTITY)
-      const simulationStart = Cesium.JulianDate.now()
-      v.scene.requestRenderMode = false
-      v.clock.startTime = Cesium.JulianDate.clone(simulationStart)
-      v.clock.currentTime = Cesium.JulianDate.clone(simulationStart)
-      v.clock.stopTime = Cesium.JulianDate.addDays(simulationStart, 3650, new Cesium.JulianDate())
-      v.clock.clockStep = Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER
-      v.clock.clockRange = Cesium.ClockRange.UNBOUNDED
-      v.clock.shouldAnimate = true
-      v.clock.multiplier = 1
+        const earthCenter = Cesium.Cartesian3.fromDegrees(108, 24, 0);
+        v.camera.lookAt(
+          earthCenter,
+          new Cesium.HeadingPitchRange(
+            Cesium.Math.toRadians(0),
+            Cesium.Math.toRadians(-90),
+            18500000,
+          ),
+        );
+        v.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+        const simulationStart = Cesium.JulianDate.now();
+        v.scene.requestRenderMode = false;
+        v.clock.startTime = Cesium.JulianDate.clone(simulationStart);
+        v.clock.currentTime = Cesium.JulianDate.clone(simulationStart);
+        v.clock.stopTime = Cesium.JulianDate.addDays(
+          simulationStart,
+          3650,
+          new Cesium.JulianDate(),
+        );
+        v.clock.clockStep = Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER;
+        v.clock.clockRange = Cesium.ClockRange.UNBOUNDED;
+        v.clock.shouldAnimate = true;
+        v.clock.multiplier = 1;
 
-      selectionHandler = new Cesium.ScreenSpaceEventHandler(v.scene.canvas)
-      selectionHandler.setInputAction((movement: any) => {
-        const pickedObject = v.scene.pick(movement.position)
-        if (Cesium.defined(pickedObject) && pickedObject.id) {
-          const entity = pickedObject.id
-          if (entity instanceof Cesium.Entity && entity.id && /^\d+$/.test(entity.id)) {
-            focusSatellite(parseInt(entity.id, 10))
-            return
+        selectionHandler = new Cesium.ScreenSpaceEventHandler(v.scene.canvas);
+        selectionHandler.setInputAction((movement: any) => {
+          const pickedObject = v.scene.pick(movement.position);
+          if (Cesium.defined(pickedObject) && pickedObject.id) {
+            const entity = pickedObject.id;
+            if (
+              entity instanceof Cesium.Entity &&
+              entity.id &&
+              /^\d+$/.test(entity.id)
+            ) {
+              focusSatellite(parseInt(entity.id, 10));
+              return;
+            }
           }
-        }
-      }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-      v.camera.moveStart.addEventListener(() => {
-        if (interactionTimeout) clearTimeout(interactionTimeout)
-        if (!v.trackedEntity) {
-          sceneMode.value = '手动控制'
-        }
-        if (!isPaused.value) {
-          v.clock.shouldAnimate = true
-        }
-      })
-
-      v.camera.moveEnd.addEventListener(() => {
-        if (interactionTimeout) clearTimeout(interactionTimeout)
-        interactionTimeout = window.setTimeout(() => {
-          if (v.trackedEntity) {
-            sceneMode.value = '聚焦查看'
-            return
+        v.camera.moveStart.addEventListener(() => {
+          if (interactionTimeout) clearTimeout(interactionTimeout);
+          if (!v.trackedEntity) {
+            sceneMode.value = "手动控制";
           }
           if (!isPaused.value) {
-            v.clock.shouldAnimate = true
-            sceneMode.value = '自动巡航'
+            v.clock.shouldAnimate = true;
           }
-        }, INTERACTION_MODE_RESET_DELAY_MS)
-      })
+        });
 
-      buildScene(v)
-      showDemoPath()
+        v.camera.moveEnd.addEventListener(() => {
+          if (interactionTimeout) clearTimeout(interactionTimeout);
+          interactionTimeout = window.setTimeout(() => {
+            if (v.trackedEntity) {
+              sceneMode.value = "聚焦查看";
+              return;
+            }
+            if (!isPaused.value) {
+              v.clock.shouldAnimate = true;
+              sceneMode.value = "自动巡航";
+            }
+          }, INTERACTION_MODE_RESET_DELAY_MS);
+        });
 
-      watch(
-        () => buildSceneSignature(),
-        () => buildScene(v)
-      )
-    } catch (error: any) {
-      const errorMessage = error?.message || error?.toString() || 'unknown error'
-      const isWebGLError =
-        errorMessage.includes('WebGL') ||
-        errorMessage.includes('webgl') ||
-        errorMessage.includes('context') ||
-        errorMessage.includes('initialization failed')
-      if (isWebGLError) webglUnavailable.value = true
-      else if (cesiumContainer.value) {
-        cesiumContainer.value.innerHTML = `
+        buildScene(v);
+        showDemoPath();
+
+        watch(
+          () => buildSceneSignature(),
+          () => buildScene(v),
+        );
+      } catch (error: any) {
+        const errorMessage =
+          error?.message || error?.toString() || "unknown error";
+        const isWebGLError =
+          errorMessage.includes("WebGL") ||
+          errorMessage.includes("webgl") ||
+          errorMessage.includes("context") ||
+          errorMessage.includes("initialization failed");
+        if (isWebGLError) webglUnavailable.value = true;
+        else if (cesiumContainer.value) {
+          cesiumContainer.value.innerHTML = `
           <div style="color:#8B92B9;padding:20px;text-align:center;font-size:14px;">
             <p style="color:#FFD04B;margin-bottom:12px;">三维场景初始化失败</p>
             <p style="font-size:12px;margin-top:8px;color:#5A6178;">${errorMessage}</p>
           </div>
-        `
+        `;
+        }
       }
-    }
-  }, isElectron ? 1500 : 500)
-})
+    },
+    isElectron ? 1500 : 500,
+  );
+});
 
 watch(
   () => uiStore.isImmersiveMode,
   (isImmersive) => {
-    if (!isImmersive && viewer.value && !viewer.value.isDestroyed() && !webglUnavailable.value) {
-      clearSelection()
+    if (
+      !isImmersive &&
+      viewer.value &&
+      !viewer.value.isDestroyed() &&
+      !webglUnavailable.value
+    ) {
+      clearSelection();
     }
-  }
-)
+  },
+);
 
 onBeforeUnmount(() => {
-  if (interactionTimeout) clearTimeout(interactionTimeout)
-  stopCommunicationLoop()
+  if (interactionTimeout) clearTimeout(interactionTimeout);
+  stopCommunicationLoop();
   if (selectionHandler) {
-    selectionHandler.destroy()
-    selectionHandler = null
+    selectionHandler.destroy();
+    selectionHandler = null;
   }
   if (viewer.value && !viewer.value.isDestroyed()) {
-    viewer.value.trackedEntity = undefined
-    viewer.value.destroy()
-    viewer.value = null
+    viewer.value.trackedEntity = undefined;
+    viewer.value.destroy();
+    viewer.value = null;
   }
-})
+});
 </script>
 
 <style scoped>
@@ -1835,7 +2230,11 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 0;
   background:
-    radial-gradient(circle at 50% 50%, rgba(125, 207, 255, 0.08), transparent 28%),
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(125, 207, 255, 0.08),
+      transparent 28%
+    ),
     linear-gradient(180deg, #020712 0%, #07101c 100%);
 }
 
@@ -1890,17 +2289,11 @@ onBeforeUnmount(() => {
   color: #8a8f98;
 }
 
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
+.legend-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
-
-.dot.leo { background: #2ecc71; }
-.dot.meo { background: #ff9f43; }
-.dot.geo { background: #ff6b6b; }
-.dot.ground { background: #f1c40f; }
 
 .overlay-bottom {
   align-items: flex-end;
@@ -1967,20 +2360,11 @@ onBeforeUnmount(() => {
   color: #8a8f98;
 }
 
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
+.legend-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
-
-.dot.leo { background: #2ecc71; }
-.dot.meo { background: #ff9f43; }
-.dot.geo { background: #ff6b6b; }
-.dot.ground { background: #f1c40f; }
-.dot.warn { background: #ffd04b; box-shadow: 0 0 6px rgba(255,208,75,0.7); }
-.dot.path { background: #00f5ff; box-shadow: 0 0 8px rgba(0,245,255,0.85); }
-.dot.uplink { background: #ffb84d; box-shadow: 0 0 6px rgba(255,184,77,0.85); }
 
 .uplink-toggle-row {
   flex-direction: row !important;
@@ -1996,7 +2380,6 @@ onBeforeUnmount(() => {
   color: #d0a06b;
   line-height: 1.4;
 }
-
 
 .overlay-bottom {
   align-items: flex-end;
@@ -2051,19 +2434,19 @@ onBeforeUnmount(() => {
 }
 .comm-path-actions {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 .comm-path-msg {
   font-size: 12px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: 6px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 4px;
   word-break: break-all;
-  height: 3.2em;
-  justify-content: center;
+  height: 6em;
   box-sizing: border-box;
   color: #8a8f98;
   background: transparent;
@@ -2087,7 +2470,6 @@ onBeforeUnmount(() => {
   color: #00f5ff !important;
   backdrop-filter: blur(16px);
 }
-
 
 .hud-card strong {
   display: block;
@@ -2189,10 +2571,21 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.status-chip.normal { box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.15); }
-.status-chip.warning { box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.14); background: rgba(245, 158, 11, 0.06); }
-.status-chip.danger { box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.14); background: rgba(239, 68, 68, 0.08); }
-.status-chip.offline { box-shadow: inset 0 0 0 1px rgba(138, 143, 152, 0.14); background: rgba(138, 143, 152, 0.06); }
+.status-chip.normal {
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.15);
+}
+.status-chip.warning {
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.14);
+  background: rgba(245, 158, 11, 0.06);
+}
+.status-chip.danger {
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.14);
+  background: rgba(239, 68, 68, 0.08);
+}
+.status-chip.offline {
+  box-shadow: inset 0 0 0 1px rgba(138, 143, 152, 0.14);
+  background: rgba(138, 143, 152, 0.06);
+}
 
 .status-chip-meta {
   display: flex;
@@ -2220,13 +2613,13 @@ onBeforeUnmount(() => {
 
 .status-badge.warning,
 .detail-status.warning {
-  color: #F59E0B;
+  color: #f59e0b;
   background: rgba(245, 158, 11, 0.14);
 }
 
 .status-badge.danger,
 .detail-status.danger {
-  color: #EF4444;
+  color: #ef4444;
   background: rgba(239, 68, 68, 0.16);
 }
 
@@ -2317,7 +2710,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   background: rgba(239, 68, 68, 0.1);
-  color: #EF4444;
+  color: #ef4444;
   font-size: 1.3rem;
   font-weight: 600;
 }
@@ -2336,7 +2729,9 @@ onBeforeUnmount(() => {
 
 .fade-panel-enter-active,
 .fade-panel-leave-active {
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
 }
 
 .fade-panel-enter-from,
@@ -2424,9 +2819,16 @@ onBeforeUnmount(() => {
   scrollbar-color: rgba(138, 143, 152, 0.25) transparent;
 }
 
-.edit-panel-list::-webkit-scrollbar { width: 8px; }
-.edit-panel-list::-webkit-scrollbar-track { background: transparent; }
-.edit-panel-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(138, 143, 152, 0.15); }
+.edit-panel-list::-webkit-scrollbar {
+  width: 8px;
+}
+.edit-panel-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.edit-panel-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(138, 143, 152, 0.15);
+}
 
 .edit-panel-actions {
   display: flex;

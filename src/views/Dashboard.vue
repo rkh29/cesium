@@ -14,7 +14,7 @@
 
     <div class="dashboard-section top-stats">
       <el-row :gutter="24">
-        <el-col :span="6" v-for="(stat, index) in networkStats" :key="index">
+        <el-col :span="8" v-for="(stat, index) in networkStats" :key="index">
           <div class="tech-card">
             <div class="tech-card-header">
               <span class="tech-card-title">{{ stat.title }}</span>
@@ -29,7 +29,9 @@
                 <span class="unit">{{ stat.unit }}</span>
               </div>
               <div class="tech-card-trend">
-                <span class="trend-val" :style="{ color: stat.trendColor }">{{ stat.trend }}</span>
+                <span class="trend-val" :style="{ color: stat.trendColor }">{{
+                  stat.trend
+                }}</span>
                 <span class="trend-label">{{ stat.trendLabel }}</span>
               </div>
             </div>
@@ -40,26 +42,18 @@
 
     <div class="dashboard-section main-charts">
       <el-row :gutter="24">
-        <el-col :span="7">
+        <el-col :span="12">
           <div class="chart-container">
             <div class="chart-header">
               <div class="title-with-desc">
-                <h2 class="section-title">异构层级节点分布</h2>
-                <span class="sub-desc">物理节点在轨数量统计</span>
+                <h2 class="section-title">星地、星间链路吞吐与信道时延统计</h2>
+                <span class="sub-desc">星地链路与星间链路信道性能监控</span>
               </div>
-            </div>
-            <div ref="layerChartRef" class="echart-box"></div>
-          </div>
-        </el-col>
-
-        <el-col :span="10">
-          <div class="chart-container">
-            <div class="chart-header">
-              <div class="title-with-desc">
-                <h2 class="section-title">全网多层链路吞吐与控制面时延</h2>
-                <span class="sub-desc">业务面 (激光 OISL) 与 控制面 (微波 RF) 性能剖析</span>
-              </div>
-              <el-radio-group v-model="timeRange" size="small" class="custom-radio">
+              <el-radio-group
+                v-model="timeRange"
+                size="small"
+                class="custom-radio"
+              >
                 <el-radio-button label="1h">1h</el-radio-button>
                 <el-radio-button label="24h">24h</el-radio-button>
               </el-radio-group>
@@ -68,12 +62,12 @@
           </div>
         </el-col>
 
-        <el-col :span="7">
+        <el-col :span="12">
           <div class="chart-container">
             <div class="chart-header">
               <div class="title-with-desc">
-                <h2 class="section-title">网络健康度评估</h2>
-                <span class="sub-desc">基于 L3 Agent 全局诊断</span>
+                <h2 class="section-title">节点间信道健康度诊断</h2>
+                <span class="sub-desc">各信道健康状态统计</span>
               </div>
             </div>
             <div ref="statusChartRef" class="echart-box"></div>
@@ -85,367 +79,326 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import * as echarts from 'echarts'
-import { Position } from '@element-plus/icons-vue'
+import { ref, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
+import * as echarts from "echarts";
+import { Position } from "@element-plus/icons-vue";
 
-const router = useRouter()
+const router = useRouter();
 
 const navigateToEarth = () => {
-  router.push('/earth')
-}
+  router.push("/earth");
+};
 
 const networkStats = ref([
   {
-    title: 'SPACE SEGMENT',
-    name: '空间段在轨节点',
-    value: '450',
-    unit: 'Satellites',
-    trend: '99.9%',
-    trendLabel: '健康在线率',
-    trendColor: '#10b981',
-    status: 'HEALTHY',
-    color: '#10b981'
+    title: "SPACE SEGMENT",
+    name: "空间段在轨节点",
+    value: "450",
+    unit: "Satellites",
+    trend: "99.9%",
+    trendLabel: "健康在线率",
+    trendColor: "#10b981",
+    status: "HEALTHY",
+    color: "#10b981",
   },
   {
-    title: 'OISL MESH',
-    name: '星间激光互联矩阵',
-    value: '1,240',
-    unit: 'Links',
-    trend: '+12',
-    trendLabel: '较前日新增动态链',
-    trendColor: '#5e6ad2',
-    status: 'ACTIVE',
-    color: '#5e6ad2'
+    title: "CHANNEL LOAD",
+    name: "信道实际使用率",
+    value: "68.3",
+    unit: "%",
+    trend: "+5.2%",
+    trendLabel: "较昨日信道负载",
+    trendColor: "#5e6ad2",
+    status: "STABLE",
+    color: "#5a5f68",
   },
   {
-    title: 'COMPUTE L3',
-    name: 'GEO 算力集群负载',
-    value: '42.5',
-    unit: '%',
-    trend: '-2.1%',
-    trendLabel: '协同调度优化',
-    trendColor: '#10b981',
-    status: 'STABLE',
-    color: '#5a5f68'
+    title: "CHANNEL LATENCY",
+    name: "信道时延",
+    value: "42",
+    unit: "ms",
+    trend: "P99 < 80ms",
+    trendLabel: "信道传输服务等级",
+    trendColor: "#7170ff",
+    status: "OPTIMAL",
+    color: "#7170ff",
   },
-  {
-    title: 'RF SIGNALING',
-    name: '微波控制面时延',
-    value: '86',
-    unit: 'ms',
-    trend: 'P99 < 100ms',
-    trendLabel: '流表下发服务等级',
-    trendColor: '#7170ff',
-    status: 'OPTIMAL',
-    color: '#7170ff'
-  },
-])
+]);
 
-const timeRange = ref('1h')
-const layerChartRef = ref<HTMLElement>()
-const metricsChartRef = ref<HTMLElement>()
-const statusChartRef = ref<HTMLElement>()
+const timeRange = ref("1h");
+const metricsChartRef = ref<HTMLElement>();
+const statusChartRef = ref<HTMLElement>();
 
-let layerChart: echarts.ECharts | null = null
-let metricsChart: echarts.ECharts | null = null
-let statusChart: echarts.ECharts | null = null
-let resizeObserver: ResizeObserver | null = null
+let metricsChart: echarts.ECharts | null = null;
+let statusChart: echarts.ECharts | null = null;
+let resizeObserver: ResizeObserver | null = null;
+let themeObserver: MutationObserver | null = null;
 
 function getAxisTheme() {
-  const isDark = document.documentElement.classList.contains('dark')
+  const isDark = document.documentElement.classList.contains("dark");
   return {
-    text: isDark ? '#8a8f98' : '#5a5f68',
-    line: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
-  }
-}
-
-const initLayerChart = () => {
-  if (layerChartRef.value) {
-    layerChart = echarts.init(layerChartRef.value)
-    const axisTheme = getAxisTheme()
-    const option = {
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        backgroundColor: '#191a1b',
-        borderColor: 'rgba(255,255,255,0.08)',
-        textStyle: { color: '#f7f8f8', fontSize: 12 }
-      },
-      grid: { left: '2%', right: '15%', bottom: '5%', top: '8%', containLabel: true },
-      xAxis: {
-        type: 'value',
-        splitLine: { lineStyle: { type: 'dashed', color: axisTheme.line } },
-        axisLabel: { color: axisTheme.text, fontSize: 11 }
-      },
-      yAxis: {
-        type: 'category',
-        data: ['地面管控段', 'GEO 算力层', 'MEO 骨干层', 'LEO 接入层'],
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: { color: axisTheme.text, fontWeight: 500, margin: 12, fontSize: 12 }
-      },
-      series: [
-        {
-          name: '运行实例',
-          type: 'bar',
-          barWidth: 20,
-          label: {
-            show: true,
-            position: 'right',
-            color: '#8a8f98',
-            fontWeight: 500,
-            formatter: '{c} 节点',
-            padding: [0, 0, 0, 8],
-            fontSize: 12
-          },
-          data: [
-            {
-              value: 4,
-              itemStyle: {
-                borderRadius: [0, 6, 6, 0],
-                color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                  { offset: 0, color: '#F59E0B' }, { offset: 1, color: '#D97706' }
-                ])
-              }
-            },
-            {
-              value: 6,
-              itemStyle: {
-                borderRadius: [0, 6, 6, 0],
-                color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                  { offset: 0, color: '#8B5CF6' }, { offset: 1, color: '#7C3AED' }
-                ])
-              }
-            },
-            {
-              value: 24,
-              itemStyle: {
-                borderRadius: [0, 6, 6, 0],
-                color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                  { offset: 0, color: '#10b981' }, { offset: 1, color: '#059669' }
-                ])
-              }
-            },
-            {
-              value: 420,
-              itemStyle: {
-                borderRadius: [0, 6, 6, 0],
-                color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                  { offset: 0, color: '#5e6ad2' }, { offset: 1, color: '#4f46e5' }
-                ])
-              }
-            }
-          ]
-        }
-      ]
-    }
-    layerChart.setOption(option)
-  }
+    text: isDark ? "#8a8f98" : "#5a5f68",
+    line: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+  };
 }
 
 const initMetricsChart = () => {
   if (metricsChartRef.value) {
-    metricsChart = echarts.init(metricsChartRef.value)
-    const axisTheme = getAxisTheme()
+    metricsChart = echarts.init(metricsChartRef.value);
+    const axisTheme = getAxisTheme();
     const dates = Array.from({ length: 12 }, (_, i) => {
-      const date = new Date()
-      date.setMinutes(date.getMinutes() - (60 - i * 5))
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    })
+      const date = new Date();
+      date.setMinutes(date.getMinutes() - (60 - i * 5));
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    });
 
     const option = {
       tooltip: {
-        trigger: 'axis',
-        backgroundColor: '#191a1b',
-        borderColor: 'rgba(255,255,255,0.08)',
+        trigger: "axis",
+        backgroundColor: "#191a1b",
+        borderColor: "rgba(255,255,255,0.08)",
         padding: [12, 16],
-        textStyle: { color: '#f7f8f8', fontSize: 12 },
-        axisPointer: { type: 'cross', label: { backgroundColor: '#28282c' } }
+        textStyle: { color: "#f7f8f8", fontSize: 12 },
+        axisPointer: { type: "cross", label: { backgroundColor: "#28282c" } },
       },
       legend: {
-        data: ['LEO边缘层 OISL 吞吐', 'GEO-MEO 骨干链路吞吐', '微波控制面下发时延'],
+        data: ["卫星-地面站链路吞吐", "卫星-卫星链路吞吐", "信道时延"],
         bottom: 0,
-        icon: 'roundRect',
+        icon: "roundRect",
         itemGap: 16,
         itemWidth: 16,
         itemHeight: 8,
-        textStyle: { color: axisTheme.text, fontSize: 12, fontWeight: 400 }
+        textStyle: { color: axisTheme.text, fontSize: 12, fontWeight: 400 },
       },
-      grid: { left: '3%', right: '5%', bottom: '18%', top: '12%', containLabel: true },
+      grid: {
+        left: "5%",
+        right: "5%",
+        bottom: "18%",
+        top: "12%",
+        containLabel: true,
+      },
       xAxis: {
-        type: 'category',
+        type: "category",
         boundaryGap: false,
         data: dates,
         axisLine: { lineStyle: { color: axisTheme.line } },
-        axisLabel: { color: axisTheme.text, margin: 12, fontSize: 11 }
+        axisLabel: { color: axisTheme.text, margin: 12, fontSize: 11 },
       },
       yAxis: [
         {
-          type: 'value',
-          name: '网络吞吐量 (Gbps)',
-          nameTextStyle: { color: axisTheme.text, align: 'right', fontSize: 11, padding: [20, 0, 0, 0] },
-          splitLine: { lineStyle: { type: 'dashed', color: axisTheme.line } },
-          axisLabel: { color: axisTheme.text, fontSize: 11 }
+          type: "value",
+          name: "吞吐量 (Gbps)",
+          nameLocation: "middle",
+          nameGap: 35,
+          nameTextStyle: {
+            color: axisTheme.text,
+            align: "left",
+            fontSize: 11,
+            padding: [12, 0, 0, 0],
+          },
+          splitLine: { lineStyle: { type: "dashed", color: axisTheme.line } },
+          axisLabel: { color: axisTheme.text, fontSize: 11 },
         },
         {
-          type: 'value',
-          name: '控制信令时延 (ms)',
-          nameTextStyle: { color: axisTheme.text, align: 'left', fontSize: 11, padding: [20, 0, 0, 0] },
+          type: "value",
+          name: "时延 (ms)",
+          nameLocation: "middle",
+          nameGap: 25,
+          nameTextStyle: {
+            color: axisTheme.text,
+            align: "left",
+            fontSize: 11,
+            padding: [12, 0, 0, 0],
+          },
           splitLine: { show: false },
-          axisLabel: { color: axisTheme.text, fontSize: 11 }
-        }
+          axisLabel: { color: axisTheme.text, fontSize: 11 },
+        },
       ],
       series: [
         {
-          name: 'LEO边缘层 OISL 吞吐',
-          type: 'line',
-          stack: 'Total',
+          name: "卫星-地面站链路吞吐",
+          type: "line",
+          stack: "Total",
           smooth: 0.4,
-          symbol: 'none',
+          symbol: "none",
           lineStyle: { width: 0 },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(94,106,210,0.6)' },
-              { offset: 1, color: 'rgba(94,106,210,0.02)' }
-            ])
+              { offset: 0, color: "rgba(94,106,210,0.6)" },
+              { offset: 1, color: "rgba(94,106,210,0.02)" },
+            ]),
           },
-          data: Array.from({ length: 12 }, () => +(Math.random() * 20 + 50).toFixed(1))
+          data: Array.from(
+            { length: 12 },
+            () => +(Math.random() * 20 + 50).toFixed(1),
+          ),
         },
         {
-          name: 'GEO-MEO 骨干链路吞吐',
-          type: 'line',
-          stack: 'Total',
+          name: "卫星-卫星链路吞吐",
+          type: "line",
+          stack: "Total",
           smooth: 0.4,
-          symbol: 'none',
+          symbol: "none",
           lineStyle: { width: 0 },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(139,92,246,0.6)' },
-              { offset: 1, color: 'rgba(139,92,246,0.02)' }
-            ])
+              { offset: 0, color: "rgba(139,92,246,0.6)" },
+              { offset: 1, color: "rgba(139,92,246,0.02)" },
+            ]),
           },
-          data: Array.from({ length: 12 }, () => +(Math.random() * 30 + 80).toFixed(1))
+          data: Array.from(
+            { length: 12 },
+            () => +(Math.random() * 30 + 80).toFixed(1),
+          ),
         },
         {
-          name: '微波控制面下发时延',
-          type: 'line',
+          name: "信道时延",
+          type: "line",
           yAxisIndex: 1,
           smooth: true,
-          symbol: 'emptyCircle',
+          symbol: "emptyCircle",
           symbolSize: 6,
           showSymbol: true,
-          itemStyle: { color: '#7170ff' },
-          lineStyle: { width: 2, type: 'dashed', color: '#7170ff' },
-          data: Array.from({ length: 12 }, () => Math.floor(Math.random() * 15 + 75)),
+          itemStyle: { color: "#7170ff" },
+          lineStyle: { width: 2, type: "dashed", color: "#7170ff" },
+          data: Array.from({ length: 12 }, () =>
+            Math.floor(Math.random() * 15 + 75),
+          ),
           markLine: {
-            symbol: ['none', 'none'],
-            label: { show: true, position: 'insideStartTop', formatter: '{b}', color: '#F59E0B', fontSize: 11, fontWeight: 500 },
-            lineStyle: { type: 'dotted', color: 'rgba(245,158,11,0.5)', width: 2 },
+            symbol: ["none", "none"],
+            label: {
+              show: true,
+              position: "insideStartTop",
+              formatter: "{b}",
+              color: "#F59E0B",
+              fontSize: 11,
+              fontWeight: 500,
+            },
+            lineStyle: {
+              type: "dotted",
+              color: "rgba(245,158,11,0.5)",
+              width: 2,
+            },
             data: [
-              { xAxis: dates[3], name: 'SDN流表下发' },
-              { xAxis: dates[8], name: '动态网关漂移' }
-            ]
-          }
-        }
-      ]
-    }
-    metricsChart.setOption(option)
+              { xAxis: dates[3], name: "SDN流表下发" },
+              { xAxis: dates[8], name: "动态网关漂移" },
+            ],
+          },
+        },
+      ],
+    };
+    metricsChart.setOption(option);
   }
-}
+};
 
 const initStatusChart = () => {
   if (statusChartRef.value) {
-    statusChart = echarts.init(statusChartRef.value)
-    const isDark = document.documentElement.classList.contains('dark')
-    const labelColor = isDark ? '#d0d6e0' : '#4a4a4a'
-    const axisTheme = getAxisTheme()
+    statusChart = echarts.init(statusChartRef.value);
+    const isDark = document.documentElement.classList.contains("dark");
+    const labelColor = isDark ? "#d0d6e0" : "#2a2a2a";
+    const axisTheme = getAxisTheme();
     const option = {
       tooltip: {
-        trigger: 'item',
-        backgroundColor: '#191a1b',
-        borderColor: 'rgba(255,255,255,0.08)',
+        trigger: "item",
+        backgroundColor: "#191a1b",
+        borderColor: "rgba(255,255,255,0.08)",
         padding: 12,
-        textStyle: { color: '#f7f8f8', fontSize: 12 },
-        formatter: '{a} <br/>{b}: {c} 节点 ({d}%)'
+        textStyle: { color: "#f7f8f8", fontSize: 12 },
+        formatter: "{a} <br/>{b}: {c} 信道 ({d}%)",
       },
       legend: {
         bottom: 0,
-        icon: 'circle',
+        icon: "circle",
         itemGap: 16,
         itemWidth: 10,
-        textStyle: { color: axisTheme.text, fontSize: 12, fontWeight: 400 }
+        textStyle: { color: axisTheme.text, fontSize: 12, fontWeight: 400 },
       },
       series: [
         {
-          name: '节点健康度',
-          type: 'pie',
-          radius: ['35%', '65%'],
-          center: ['50%', '42%'],
-          roseType: 'radius',
+          name: "信道健康度",
+          type: "pie",
+          radius: ["35%", "65%"],
+          center: ["50%", "42%"],
+          roseType: "radius",
           itemStyle: {
             borderRadius: 6,
-            borderColor: '#0f1011',
-            borderWidth: 2
+            borderColor: "#0f1011",
+            borderWidth: 2,
           },
           label: {
             show: true,
-            formatter: '{b}\n{c} 节点',
+            formatter: "{b}\n{c} 信道",
             color: labelColor,
             fontSize: 11,
-            lineHeight: 15
+            lineHeight: 15,
           },
           labelLine: {
-            length: 8,
-            length2: 10,
+            length: 20,
+            length2: 0,
             smooth: true,
-            lineStyle: { color: 'rgba(255,255,255,0.15)' }
+            lineStyle: { color: "rgba(255,255,255,0.15)" },
           },
           data: [
-            { value: 420, name: '运行平稳', itemStyle: { color: '#10b981' } },
-            { value: 24, name: '算力高载', itemStyle: { color: '#5e6ad2' } },
-            { value: 10, name: '路由抖动', itemStyle: { color: '#F59E0B' } },
-            { value: 1, name: '链路断联', itemStyle: { color: '#EF4444' } }
-          ].sort((a, b) => a.value - b.value)
-        }
-      ]
-    }
-    statusChart.setOption(option)
+            { value: 420, name: "正常信道", itemStyle: { color: "#10b981" } },
+            { value: 24, name: "高负载信道", itemStyle: { color: "#5e6ad2" } },
+            {
+              value: 10,
+              name: "高误码率信道",
+              itemStyle: { color: "#F59E0B" },
+            },
+            { value: 1, name: "断联信道", itemStyle: { color: "#EF4444" } },
+          ].sort((a, b) => a.value - b.value),
+        },
+      ],
+    };
+    statusChart.setOption(option);
   }
-}
+};
 
 const handleResize = () => {
-  layerChart?.resize()
-  metricsChart?.resize()
-  statusChart?.resize()
-}
+  metricsChart?.resize();
+  statusChart?.resize();
+};
 
 onMounted(() => {
-  initLayerChart()
-  initMetricsChart()
-  initStatusChart()
+  initMetricsChart();
+  initStatusChart();
 
-  const container = document.querySelector('.dashboard-container')
+  const container = document.querySelector(".dashboard-container");
   if (container) {
     resizeObserver = new ResizeObserver(() => {
-      handleResize()
-    })
-    resizeObserver.observe(container)
+      handleResize();
+    });
+    resizeObserver.observe(container);
   }
 
-  window.addEventListener('resize', handleResize)
-})
+  window.addEventListener("resize", handleResize);
+
+  themeObserver = new MutationObserver(() => {
+    initMetricsChart();
+    initStatusChart();
+  });
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+});
 
 onUnmounted(() => {
   if (resizeObserver) {
-    resizeObserver.disconnect()
+    resizeObserver.disconnect();
   }
-  layerChart?.dispose()
-  metricsChart?.dispose()
-  statusChart?.dispose()
-  window.removeEventListener('resize', handleResize)
-})
+  if (themeObserver) {
+    themeObserver.disconnect();
+  }
+  metricsChart?.dispose();
+  statusChart?.dispose();
+  window.removeEventListener("resize", handleResize);
+});
 </script>
 
 <style scoped>
@@ -481,7 +434,9 @@ onUnmounted(() => {
   background: #3b5d8a;
   border: 1px solid #3b5d8a;
   color: #ffffff;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .nav-btn:hover {
@@ -517,10 +472,10 @@ onUnmounted(() => {
 
 .tech-card {
   position: relative;
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
   padding: 20px 24px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   transition: background 0.15s;
   display: flex;
@@ -529,7 +484,7 @@ onUnmounted(() => {
 }
 
 .tech-card:hover {
-  background: rgba(255,255,255,0.035);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .tech-card-header {
@@ -620,11 +575,11 @@ onUnmounted(() => {
 }
 
 .chart-container {
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
   padding: 24px;
   height: 100%;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -673,13 +628,13 @@ onUnmounted(() => {
   padding: 4px 12px;
   font-size: 12px;
   background: transparent;
-  border-color: rgba(255,255,255,0.06);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #8a8f98;
 }
 
 :deep(.el-radio-button.is-active .el-radio-button__inner) {
-  background: rgba(94,106,210,0.15);
-  border-color: rgba(94,106,210,0.3);
+  background: rgba(94, 106, 210, 0.15);
+  border-color: rgba(94, 106, 210, 0.3);
   color: #f7f8f8;
   box-shadow: none;
 }
@@ -731,13 +686,13 @@ onUnmounted(() => {
 }
 
 :root:not(.dark) :deep(.el-radio-button__inner) {
-  border-color: rgba(0,0,0,0.08);
+  border-color: rgba(0, 0, 0, 0.08);
   color: #5a5f68;
 }
 
 :root:not(.dark) :deep(.el-radio-button.is-active .el-radio-button__inner) {
-  background: rgba(94,106,210,0.1);
-  border-color: rgba(94,106,210,0.2);
+  background: rgba(94, 106, 210, 0.1);
+  border-color: rgba(94, 106, 210, 0.2);
   color: #1d2129;
 }
 </style>

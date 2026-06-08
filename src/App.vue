@@ -1,48 +1,48 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
-import { RouterView, useRoute, useRouter } from 'vue-router'
+import { computed, ref, onMounted } from "vue";
+import { RouterView, useRoute, useRouter } from "vue-router";
 import {
   Fold,
   Monitor,
   Odometer,
   Position,
   Setting,
-  User
-} from '@element-plus/icons-vue'
-import { useAuthStore } from './stores/auth'
-import logoUrl from './assets/logo.svg'
+  User,
+} from "@element-plus/icons-vue";
+import { useAuthStore } from "./stores/auth";
+import logoUrl from "./assets/logo.svg";
 
 interface NavChild {
-  path?: string
-  label: string
-  icon?: any
+  path?: string;
+  label: string;
+  icon?: any;
 }
 
 interface NavGroup {
-  id: string
-  label: string
-  icon: any
-  children: NavChild[]
+  id: string;
+  label: string;
+  icon: any;
+  children: NavChild[];
 }
 
-const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 
-const collapsed = ref(false)
-const isDark = ref(true)
-const loginVisible = ref(false)
-const loginForm = ref({ username: 'admin', password: 'admin' })
+const collapsed = ref(false);
+const isDark = ref(true);
+const loginVisible = ref(false);
+const loginForm = ref({ username: "admin", password: "admin" });
 
 const groups: NavGroup[] = [
   {
-    id: 'overview',
-    label: '总览',
+    id: "overview",
+    label: "总览",
     icon: Monitor,
     children: [
-      { path: '/', label: '仪表盘', icon: Odometer },
-      { path: '/earth', label: '卫星可视编辑', icon: Position }
-    ]
+      { path: "/", label: "仪表盘", icon: Odometer },
+      { path: "/earth", label: "卫星可视编辑", icon: Position },
+    ],
   },
   // {
   //   id: 'topology',
@@ -53,66 +53,69 @@ const groups: NavGroup[] = [
   //     { path: '/links', label: '链路拓扑', icon: Link }
   //   ]
   // }
-]
+];
 
 onMounted(() => {
-  authStore.loadAuth()
+  authStore.loadAuth();
   if (!authStore.isAuthenticated) {
-    loginVisible.value = true
+    loginVisible.value = true;
   }
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme === 'dark' || savedTheme === null) {
-    isDark.value = true
-    document.documentElement.classList.add('dark')
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme === "dark" || savedTheme === null) {
+    isDark.value = true;
+    document.documentElement.classList.add("dark");
   } else {
-    isDark.value = false
-    document.documentElement.classList.remove('dark')
+    isDark.value = false;
+    document.documentElement.classList.remove("dark");
   }
-})
+});
 
 function toggleTheme() {
-  isDark.value = !isDark.value
+  isDark.value = !isDark.value;
   if (isDark.value) {
-    document.documentElement.classList.add('dark')
-    localStorage.setItem('theme', 'dark')
+    document.documentElement.classList.add("dark");
+    localStorage.setItem("theme", "dark");
   } else {
-    document.documentElement.classList.remove('dark')
-    localStorage.setItem('theme', 'light')
+    document.documentElement.classList.remove("dark");
+    localStorage.setItem("theme", "light");
   }
 }
 
 async function handleLogin() {
-  const success = await authStore.login(loginForm.value.username, loginForm.value.password)
+  const success = await authStore.login(
+    loginForm.value.username,
+    loginForm.value.password,
+  );
   if (success) {
-    loginVisible.value = false
-    if (route.path === '/login') {
-      router.push('/')
+    loginVisible.value = false;
+    if (route.path === "/login") {
+      router.push("/");
     }
   }
 }
 
 function handleLogout() {
-  authStore.logout()
-  loginVisible.value = true
+  authStore.logout();
+  loginVisible.value = true;
 }
 
 function handleNav(path: string | undefined) {
   if (path) {
-    router.push(path)
+    router.push(path);
   }
 }
 
 function isActive(path: string | undefined) {
-  return path && route.path === path
+  return path && route.path === path;
 }
 
 const currentTitle = computed(() => {
   for (const group of groups) {
-    const match = group.children.find((child) => child.path === route.path)
-    if (match) return match.label
+    const match = group.children.find((child) => child.path === route.path);
+    if (match) return match.label;
   }
-  return '仪表盘'
-})
+  return "仪表盘";
+});
 </script>
 
 <template>
@@ -150,16 +153,22 @@ const currentTitle = computed(() => {
           @click="toggleTheme"
         >
           <el-icon><Setting /></el-icon>
-          <span v-if="!collapsed">{{ isDark ? '浅色模式' : '深色模式' }}</span>
+          <span v-if="!collapsed">{{ isDark ? "浅色模式" : "深色模式" }}</span>
         </div>
         <div
           class="menu-item"
           :title="authStore.isAuthenticated ? '退出登录' : '登录'"
-          @click="authStore.isAuthenticated ? handleLogout() : (loginVisible = true)"
+          @click="
+            authStore.isAuthenticated ? handleLogout() : (loginVisible = true)
+          "
         >
           <el-icon><User /></el-icon>
           <span v-if="!collapsed" class="truncate">
-            {{ authStore.isAuthenticated ? (authStore.user?.username || '退出') : '登录' }}
+            {{
+              authStore.isAuthenticated
+                ? authStore.user?.username || "退出"
+                : "登录"
+            }}
           </span>
         </div>
       </div>
@@ -198,7 +207,12 @@ const currentTitle = computed(() => {
             @keyup.enter="handleLogin"
           />
         </el-form-item>
-        <el-button type="primary" class="w-full mt-4" style="width: 100%" @click="handleLogin">
+        <el-button
+          type="primary"
+          class="w-full mt-4"
+          style="width: 100%"
+          @click="handleLogin"
+        >
           登录进入系统
         </el-button>
       </el-form>
@@ -252,12 +266,16 @@ html.dark {
   --el-border-color-lighter: rgba(255, 255, 255, 0.04);
 }
 
-html, body, #app {
+html,
+body,
+#app {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", Roboto, sans-serif;
   background-color: var(--vscode-bg);
   color: var(--vscode-text);
   overflow: hidden;
@@ -273,7 +291,9 @@ html, body, #app {
   width: 100vw;
   background-color: var(--vscode-bg);
   color: var(--vscode-text);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 .sidebar {
@@ -282,7 +302,10 @@ html, body, #app {
   border-right: 1px solid var(--vscode-border);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, border-color 0.3s ease;
+  transition:
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s ease,
+    border-color 0.3s ease;
   flex-shrink: 0;
 }
 
@@ -364,7 +387,9 @@ html, body, #app {
   color: var(--vscode-text-muted);
   font-size: 14px;
   font-weight: 500;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   border-left: 3px solid transparent;
 }
 
@@ -427,7 +452,9 @@ html, body, #app {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .breadcrumbs .view-title {
@@ -461,16 +488,22 @@ html, body, #app {
   color: var(--vscode-text);
 }
 
-html, body, #app {
+html,
+body,
+#app {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", Roboto, sans-serif;
   background-color: var(--vscode-bg);
   color: var(--vscode-text);
   overflow: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 * {
@@ -483,7 +516,9 @@ html, body, #app {
   width: 100vw;
   background-color: var(--vscode-bg);
   color: var(--vscode-text);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 .sidebar {
@@ -492,7 +527,10 @@ html, body, #app {
   border-right: 1px solid var(--vscode-border);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, border-color 0.3s ease;
+  transition:
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s ease,
+    border-color 0.3s ease;
   flex-shrink: 0;
 }
 
@@ -574,7 +612,9 @@ html, body, #app {
   color: var(--vscode-text-muted);
   font-size: 14px;
   font-weight: 500;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
   border-left: 3px solid transparent;
 }
 
@@ -627,7 +667,9 @@ html, body, #app {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  transition: flex 0.3s ease, width 0.3s ease;
+  transition:
+    flex 0.3s ease,
+    width 0.3s ease;
 }
 
 .editor-header {
@@ -638,7 +680,9 @@ html, body, #app {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .breadcrumbs .view-title {

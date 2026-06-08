@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import CesiumViewer from '../components/cesium/CesiumViewer.vue'
+import CesiumViewer from "../components/cesium/CesiumViewer.vue";
 </script>
 
 <style scoped>

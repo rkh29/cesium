@@ -1,51 +1,51 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { nodeApi, resourceApi } from '../api'
-import type { Node, HostResource } from '../api/types'
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import { nodeApi, resourceApi } from "../api";
+import type { Node, HostResource } from "../api/types";
 
-export const useNodeStore = defineStore('node', () => {
-  const nodes = ref<Node[]>([])
-  const resources = ref<Record<number, HostResource>>({})
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+export const useNodeStore = defineStore("node", () => {
+  const nodes = ref<Node[]>([]);
+  const resources = ref<Record<number, HostResource>>({});
+  const loading = ref(false);
+  const error = ref<string | null>(null);
 
   const fetchNodes = async () => {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
     try {
-      nodes.value = await nodeApi.getList()
+      nodes.value = await nodeApi.getList();
     } catch (e: any) {
-      error.value = e.message
+      error.value = e.message;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
   const fetchAllResources = async () => {
     try {
-      resources.value = await resourceApi.getNodeResource('all')
+      resources.value = await resourceApi.getNodeResource("all");
     } catch (e: any) {
-      console.error('Failed to fetch node resources:', e)
+      console.error("Failed to fetch node resources:", e);
     }
-  }
+  };
 
   const fetchNodeResource = async (nodeIndex: number) => {
     try {
-      const res = await resourceApi.getNodeResource(nodeIndex)
+      const res = await resourceApi.getNodeResource(nodeIndex);
       if (res[nodeIndex]) {
-        resources.value[nodeIndex] = res[nodeIndex]
+        resources.value[nodeIndex] = res[nodeIndex];
       }
     } catch (e: any) {
-      console.error('Failed to fetch node resource:', e)
+      console.error("Failed to fetch node resource:", e);
     }
-  }
+  };
 
-  const masterNode = computed(() => nodes.value.find(n => n.is_master_node))
-  const nodeCount = computed(() => nodes.value.length)
+  const masterNode = computed(() => nodes.value.find((n) => n.is_master_node));
+  const nodeCount = computed(() => nodes.value.length);
 
   const getNodeById = (index: number) => {
-    return nodes.value.find(n => n.node_index === index)
-  }
+    return nodes.value.find((n) => n.node_index === index);
+  };
 
   return {
     nodes,
@@ -57,6 +57,6 @@ export const useNodeStore = defineStore('node', () => {
     fetchNodeResource,
     masterNode,
     nodeCount,
-    getNodeById
-  }
-})
+    getNodeById,
+  };
+});
