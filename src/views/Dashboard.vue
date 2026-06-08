@@ -79,22 +79,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import * as echarts from "echarts";
 import { Position } from "@element-plus/icons-vue";
+import { useSatelliteStore } from "../stores/satellite";
+import { useLinkStore } from "../stores/link";
 
 const router = useRouter();
+const satelliteStore = useSatelliteStore();
+const linkStore = useLinkStore();
 
 const navigateToEarth = () => {
   router.push("/earth");
 };
 
-const networkStats = ref([
+const networkStats = computed(() => [
   {
     title: "SPACE SEGMENT",
     name: "空间段在轨节点",
-    value: "450",
+    value: String(satelliteStore.satellites.length),
     unit: "Satellites",
     trend: "99.9%",
     trendLabel: "健康在线率",
@@ -105,7 +109,7 @@ const networkStats = ref([
   {
     title: "CHANNEL LOAD",
     name: "信道实际使用率",
-    value: "68.3",
+    value: "89.7",
     unit: "%",
     trend: "+5.2%",
     trendLabel: "较昨日信道负载",
@@ -125,6 +129,24 @@ const networkStats = ref([
     color: "#7170ff",
   },
 ]);
+
+const channelData = computed(() => {
+  const links = linkStore.linksForDisplay;
+  const normal = links.filter((l) => l.status === "normal").length;
+  const warning = links.filter((l) => l.status === "warning").length;
+  const danger = links.filter((l) => l.status === "danger").length;
+  const offline = links.filter((l) => l.status === "offline").length;
+  return [
+    { value: normal, name: "正常信道", itemStyle: { color: "#10b981" } },
+    { value: warning, name: "告警信道", itemStyle: { color: "#F59E0B" } },
+    { value: danger, name: "异常信道", itemStyle: { color: "#EF4444" } },
+    {
+      value: offline || 1,
+      name: "断联信道",
+      itemStyle: { color: "#6b7280" },
+    },
+  ].sort((a, b) => a.value - b.value);
+});
 
 const timeRange = ref("1h");
 const metricsChartRef = ref<HTMLElement>();
@@ -342,16 +364,7 @@ const initStatusChart = () => {
             smooth: true,
             lineStyle: { color: "rgba(255,255,255,0.15)" },
           },
-          data: [
-            { value: 420, name: "正常信道", itemStyle: { color: "#10b981" } },
-            { value: 24, name: "高负载信道", itemStyle: { color: "#5e6ad2" } },
-            {
-              value: 10,
-              name: "高误码率信道",
-              itemStyle: { color: "#F59E0B" },
-            },
-            { value: 1, name: "断联信道", itemStyle: { color: "#EF4444" } },
-          ].sort((a, b) => a.value - b.value),
+          data: channelData.value,
         },
       ],
     };
@@ -365,6 +378,8 @@ const handleResize = () => {
 };
 
 onMounted(() => {
+  linkStore.fetchLinks();
+  linkStore.fetchAllResources();
   initMetricsChart();
   initStatusChart();
 
