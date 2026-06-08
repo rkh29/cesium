@@ -380,6 +380,7 @@ import { useInstanceStore } from '../../stores/instance'
 import { useLinkStore, type LinkDisplay } from '../../stores/link'
 import { useSatelliteStore, type Satellite } from '../../stores/satellite'
 import { useUIStore } from '../../stores/ui'
+import satelliteIcon from '../../assets/satellite-icon.svg'
 
 const props = withDefaults(
   defineProps<{
@@ -1452,11 +1453,14 @@ function buildScene(v: Cesium.Viewer) {
         () => getSatellitePosition(sat, v.clock.currentTime, startTime),
         false
       ),
-      point: {
-        pixelSize: isAbnormal ? (isGeo ? 12 : isMeo ? 10 : 9) : isGeo ? 5 : isMeo ? 4 : 3.5,
-        color: color,
-        outlineColor: isAbnormal ? color.withAlpha(0.95) : color.withAlpha(0.6),
-        outlineWidth: isAbnormal ? 2 : 1
+      billboard: {
+        image: satelliteIcon,
+        width: isAbnormal ? (isGeo ? 34 : isMeo ? 31 : 29) : isGeo ? 28 : isMeo ? 25 : 23,
+        height: isAbnormal ? (isGeo ? 34 : isMeo ? 31 : 29) : isGeo ? 28 : isMeo ? 25 : 23,
+        color: isAbnormal ? color.withAlpha(1) : Cesium.Color.WHITE.withAlpha(0.96),
+        verticalOrigin: Cesium.VerticalOrigin.CENTER,
+        horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+        scaleByDistance: new Cesium.NearFarScalar(500000, 1.15, 80000000, 0.65)
       },
       path: {
         show: isAbnormal || isSelected,
