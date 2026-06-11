@@ -79,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import * as echarts from "echarts";
 import { Position } from "@element-plus/icons-vue";
@@ -377,11 +377,23 @@ const handleResize = () => {
   statusChart?.resize();
 };
 
-onMounted(() => {
-  linkStore.fetchLinks();
-  linkStore.fetchAllResources();
+onMounted(async () => {
+  await Promise.all([
+    linkStore.fetchLinks(),
+    linkStore.fetchAllResources(),
+  ]);
   initMetricsChart();
   initStatusChart();
+
+  watch(channelData, () => {
+    if (statusChart) {
+      const isDark = document.documentElement.classList.contains("dark");
+      const labelColor = isDark ? "#d0d6e0" : "#2a2a2a";
+      statusChart.setOption({
+        series: [{ data: channelData.value, label: { color: labelColor } }],
+      });
+    }
+  }, { deep: true });
 
   const container = document.querySelector(".dashboard-container");
   if (container) {

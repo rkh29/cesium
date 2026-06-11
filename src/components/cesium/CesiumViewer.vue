@@ -71,7 +71,7 @@
         <div class="float-card-head">
           <div>
             <strong>{{ selectedSatelliteCard.name }}</strong>
-            <span>{{ selectedSatelliteCard.instanceId }}</span>
+            <span class="float-card-id">ID: {{ selectedSatelliteCard.instanceId }}</span>
           </div>
           <el-button class="collapse-btn" plain @click="clearSelection"
             >收起状态</el-button
@@ -104,11 +104,11 @@
             >
           </div>
           <div v-if="selectedOrbitMetrics" class="float-item">
-            <label>閫熷害</label>
+            <label>速度</label>
             <strong>{{ selectedOrbitMetrics.speedKps.toFixed(2) }} km/s</strong>
           </div>
           <div v-if="selectedOrbitMetrics" class="float-item">
-            <label>鍛ㄦ湡</label>
+            <label>周期</label>
             <strong
               >{{ selectedOrbitMetrics.periodMinutes.toFixed(1) }} min</strong
             >
@@ -149,6 +149,17 @@
           >
         </div>
       </div>
+    </transition>
+
+    <transition name="fade-panel">
+      <el-button
+        v-if="showOverlay"
+        class="cruise-toggle-btn"
+        plain
+        @click="toggleCruiseMode"
+      >
+        {{ sceneMode === '自动巡航' ? '退出巡航' : '自动巡航' }}
+      </el-button>
     </transition>
 
     <el-button
@@ -1023,6 +1034,22 @@ function clearSelection() {
       },
       duration: 1.2,
     });
+  }
+}
+
+function toggleCruiseMode() {
+  if (sceneMode.value === "自动巡航") {
+    // 退出巡航 → 切换为手动控制
+    satelliteStore.selectedSatelliteId = null;
+    isPaused.value = false;
+    sceneMode.value = "手动控制";
+    if (viewer.value && !viewer.value.isDestroyed()) {
+      viewer.value.trackedEntity = undefined;
+      viewer.value.clock.shouldAnimate = true;
+    }
+  } else {
+    // 进入自动巡航
+    clearSelection();
   }
 }
 
@@ -2220,6 +2247,7 @@ onBeforeUnmount(() => {
     viewer.value.destroy();
     viewer.value = null;
   }
+  satelliteStore.selectedSatelliteId = null;
 });
 </script>
 
@@ -2471,6 +2499,26 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(16px);
 }
 
+.cruise-toggle-btn {
+  position: absolute !important;
+  right: 24px;
+  bottom: 160px;
+  z-index: 12;
+  pointer-events: auto;
+  background: rgba(94, 106, 210, 0.12) !important;
+  border-color: rgba(94, 106, 210, 0.5) !important;
+  color: #b0b9ff !important;
+  backdrop-filter: blur(16px);
+  min-width: 120px;
+  justify-content: center !important;
+}
+
+.cruise-toggle-btn:hover {
+  background: rgba(94, 106, 210, 0.25) !important;
+  border-color: rgba(94, 106, 210, 0.7) !important;
+  color: #d0d6ff !important;
+}
+
 .hud-card strong {
   display: block;
   margin: 6px 0;
@@ -2513,17 +2561,22 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.float-card-id {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #8a8f98 !important;
+}
+
 .status-drawer-head strong,
 .float-card-head strong,
-.status-chip strong,
-.float-item strong {
+.status-chip strong {
   color: #f7f8f8;
 }
 
 .status-drawer-head span,
 .float-card-head span,
-.status-chip span,
-.float-item label {
+.status-chip span {
   color: #62666d;
 }
 
@@ -2605,6 +2658,10 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+.float-item .detail-status {
+  display: inline-flex;
+}
+
 .status-badge.normal,
 .detail-status.normal {
   color: #10b981;
@@ -2632,7 +2689,7 @@ onBeforeUnmount(() => {
 .satellite-float-card {
   position: absolute;
   right: 24px;
-  bottom: 126px;
+  bottom: 210px;
   z-index: 12;
   width: 340px;
   border-radius: 8px;
@@ -2657,29 +2714,17 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-.float-item strong {
-  margin-top: 6px;
-}
-
 .float-item label {
-  color: #62666d;
+  color: #a8b0c0;
   margin-bottom: 6px;
   font-size: 13px;
 }
 
 .float-item strong {
-  color: #f7f8f8;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.float-item label,
-.float-item strong {
-  display: block;
-}
-
-.float-item strong {
   margin-top: 6px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .cesium-placeholder {
